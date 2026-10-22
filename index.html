@@ -67,7 +67,7 @@ h1{font-size:15px;margin:4px 0 10px;letter-spacing:.08em;text-transform:uppercas
 const CANDIDATOS = {
   "14": {nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
   "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
-  "22": {nome:"Enzo Perelhal Fidelis", partido:"PL", foto:""}
+  "22": {nome:"Lorenzo Bonfa", partido:"PL", foto:""}
 };
 const ELEITORES = {"000":"Gustavo Enk","001":"Rafael Donato","002":"Hao Yang","003":"Lorenzo Bonfa","004":"Leonardo Terazan","005":"Gustavo Menegassi","006":"Rodrigo Miyamura","007":"Pedro Henrique Zorzi","008":"Pedro Maqueda","009":"Pedro Prates","010":"Henrique Rocha","011":"Alexandre Ioannis","012":"Arthur Mazer","013":"Arthur Ishii","014":"Felipe Belarmino","015":"Barroso","016":"Davi Leite","017":"Enrico Bonfa","018":"Enzo Fidelis","019":"Pedro Freitas","020":"Gustavo Benini","021":"Ian Sanazar","022":"Kendrid Dubai","023":"Leonardo Tebinka","024":"Lucas Mello","025":"Miguel Arruda","026":"Noah Kawada","027":"Théo"};
 const TOTAL = 28;
@@ -184,7 +184,7 @@ async function atualizaBU(){
   b.style.display = "block"; b.textContent = "Carregando...";
   const r = await api("resultados","GET",null,chaveAdm);
   if(!r.ok){ b.textContent = r.status===401 ? "Senha incorreta." : "Não foi possível carregar o boletim."; chaveAdm = ""; return; }
-  const v = r.votos || {}, nomes = {"14":"14 – Rodrigo Miyamura e Silva (Missão)","50":"50 – Miguel Lucas Arruda (PCL)","22":"22 – Enzo Perelhal Fidelis (PL)"};
+  const v = r.votos || {}, nomes = {"14":"14 – Rodrigo Miyamura e Silva (Missão)","50":"50 – Miguel Lucas Arruda (PCL)","22":"22 – Lorenzo Bonfa (PL)"};
   let h = "<b>Boletim de urna – Presidente</b><br>";
   ["14","50","22"].forEach(k => h += nomes[k] + ": " + (v[k]||0) + "<br>");
   h += "Brancos: " + (v.branco||0) + "<br>Nulos: " + (v.nulo||0) + "<br>Votaram: " + r.votaram + " de "+TOTAL+"<br><br>" +
