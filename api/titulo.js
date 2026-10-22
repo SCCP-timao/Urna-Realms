@@ -1,6 +1,8 @@
+const { aberta, descricao } = require("../lib/horario");
 const { cmd, tituloValido } = require("../lib/db");
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ erro: "metodo" });
+  if (!aberta()) return res.status(403).json({ erro: "fechado", mensagem: descricao() });
   const { titulo } = req.body || {};
   if (!tituloValido(titulo)) return res.status(400).json({ erro: "invalido" });
   try {
