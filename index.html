@@ -69,7 +69,7 @@ const CANDIDATOS = {
   "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
   "22": {nome:"Enzo Perelhal Fidelis", partido:"PL", foto:""}
 };
-const ELEITORES = {"000":"Gustavo Enk","001":"Rafael Donato","002":"Hao Yang","003":"Lorenzo Bonfa","004":"Leonardo Terazan","005":"Gustavo Menegassi","006":"Rodrigo Miyamura","007":"Pedro Henrique Zorzi","008":"Pedro Maqueda","009":"Pedro Prates","010":"Henrique Rocha","011":"Alexandre Ioannis","012":"Arthur Mazer","013":"Arthur Ishii","014":"Felipe Belarmino","015":"Davi Barroso","016":"Davi Leite","017":"Enrico Bonfa","018":"Enzo Fidelis","019":"Pedro Freitas","020":"Gustavo Benini","021":"Ian Sanazar","022":"Kendrid Dubai","023":"Leonardo Tebinka","024":"Lucas Mello","025":"Miguel Arruda","026":"Noah Kawada","027":"Théo"};
+const ELEITORES = {"000":"Gustavo Enk","001":"Rafael Donato","002":"Hao Yang","003":"Lorenzo Bonfa","004":"Leonardo Terazan","005":"Gustavo Menegassi","006":"Rodrigo Miyamura","007":"Pedro Henrique Zorzi","008":"Pedro Maqueda","009":"Pedro Prates","010":"Henrique Rocha","011":"Alexandre Ioannis","012":"Arthur Mazer","013":"Arthur Ishii","014":"Felipe Belarmino","015":"Barroso","016":"Davi Leite","017":"Enrico Bonfa","018":"Enzo Fidelis","019":"Pedro Freitas","020":"Gustavo Benini","021":"Ian Sanazar","022":"Kendrid Dubai","023":"Leonardo Tebinka","024":"Lucas Mello","025":"Miguel Arruda","026":"Noah Kawada","027":"Théo"};
 const TOTAL = 28;
 let ocupado = false, chaveAdm = "";
 
@@ -157,7 +157,7 @@ async function confirma(){
     const r = await api("titulo","POST",{titulo:buf});
     ocupado = false;
     if(r.ok){ tituloAtual = buf; erro = ""; etapa = "voto"; tom(900,.1); }
-    else { erro = r.erro==="jaVotou" ? "ESTE TÍTULO JÁ VOTOU" : r.erro==="invalido" ? "TÍTULO INVÁLIDO" : "ERRO DE CONEXÃO. TENTE DE NOVO"; tom(300,.4); }
+    else { erro = r.erro==="jaVotou" ? "ESTE TÍTULO JÁ VOTOU" : r.erro==="invalido" ? "TÍTULO INVÁLIDO" : r.erro==="fechado" ? "URNA FECHADA. "+r.mensagem : "ERRO DE CONEXÃO. TENTE DE NOVO"; tom(300,.4); }
     buf = ""; render(); return;
   }
   if(etapa === "voto"){
@@ -173,7 +173,7 @@ async function confirma(){
     } else if(r.erro === "jaVotou"){
       etapa = "titulo"; buf = ""; branco = false; pendente = false; tituloAtual = ""; erro = "ESTE TÍTULO JÁ VOTOU"; tom(300,.4); render();
     } else {
-      pendente = false; erro = "ERRO DE CONEXÃO. CONFIRME DE NOVO"; tom(300,.4); render();
+      pendente = false; erro = r.erro==="fechado" ? "URNA FECHADA. "+r.mensagem : "ERRO DE CONEXÃO. CONFIRME DE NOVO"; tom(300,.4); render();
     }
   }
 }
