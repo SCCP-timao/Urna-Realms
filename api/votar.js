@@ -1,3 +1,4 @@
+const { aberta, descricao } = require("../lib/horario");
 const { cmd, tituloValido, CANDIDATOS } = require("../lib/db");
 
 // Atômico: registra o título e soma o voto numa única operação.
@@ -10,6 +11,7 @@ return 0`;
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ erro: "metodo" });
+  if (!aberta()) return res.status(403).json({ erro: "fechado", mensagem: descricao() });
   const { titulo, voto } = req.body || {};
   if (!tituloValido(titulo)) return res.status(400).json({ erro: "invalido" });
   let chave;
