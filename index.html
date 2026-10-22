@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Urna Eletrônica</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+--bg:#e9e9e4;--body:#d8d8d2;--ink:#111;--muted:#555;--screen:#e8ecdf;--key:#2b2b2b;--keyt:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#16171a;--body:#2a2b30;--ink:#eee;--muted:#aaa}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#16171a;--body:#2a2b30;--ink:#eee;--muted:#aaa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{font-size:15px;margin:4px 0 10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.urna{display:flex;gap:12px;background:var(--body);padding:14px;border-radius:14px;width:100%;max-width:820px;box-shadow:0 6px 24px #0004}
+.tela{flex:1 1 60%;background:var(--screen);color:#111;border:4px solid #888;border-radius:6px;min-height:380px;padding:14px;position:relative;font-size:15px;display:flex;flex-direction:column}
+.teclado{flex:0 0 190px;display:flex;flex-direction:column;gap:8px}
+.logo{background:#111;color:#fff;text-align:center;font-size:12px;padding:6px;border-radius:4px;letter-spacing:.1em}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.k{background:var(--key);color:var(--keyt);border:0;border-radius:5px;font-size:20px;font-weight:bold;padding:12px 0;cursor:pointer;box-shadow:0 3px 0 #000;-webkit-tap-highlight-color:transparent}
+.k:active{transform:translateY(2px);box-shadow:0 1px 0 #000}
+.k.z{grid-column:2}
+.acoes{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.acoes .k{font-size:11px;padding:14px 0}
+.br{background:#fff;color:#111}.co{background:#ee7d1b;color:#111}.ok{background:#1faa3b;color:#fff;grid-column:1/3;font-size:14px!important;padding:18px 0!important}
+.tit{font-size:13px;color:#333;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:10px}
+.big{font-size:20px;font-weight:bold;margin:6px 0}
+.caixas{display:flex;gap:6px;margin:8px 0}
+.cx{width:38px;height:46px;border:2px solid #111;font-size:28px;font-weight:bold;display:flex;align-items:center;justify-content:center;background:#fff}
+.cx.on{outline:3px solid #1faa3b}
+.cand{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.foto{width:96px;height:126px;border:2px solid #111;background:#cfd3c6;object-fit:cover;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.foto svg{width:80%}
+.info div{margin:3px 0}
+.rod{margin-top:auto;border-top:1px solid #999;padding-top:6px;font-size:12px;color:#222;line-height:1.5}
+.alerta{background:#111;color:#fff;padding:6px 8px;margin-top:8px;font-weight:bold;font-size:13px;animation:pisca 1s steps(2) infinite}
+@keyframes pisca{50%{background:#a00}}
+.fim{margin:auto;text-align:center;font-size:84px;font-weight:bold;letter-spacing:.1em}
+.msg{color:#a00;font-weight:bold;margin-top:8px}
+.nulo{font-size:20px;font-weight:bold;margin-top:10px}
+.bu{margin-top:12px;font-size:13px;color:var(--muted);text-align:center}
+.bu button{background:none;border:1px solid var(--muted);color:var(--ink);border-radius:5px;padding:6px 10px;cursor:pointer}
+#bu{display:none;margin-top:8px;background:var(--body);padding:12px;border-radius:8px;max-width:820px;width:100%;font-size:14px}
+@media (max-width:620px){.urna{flex-direction:column}.teclado{flex:none}.tela{min-height:340px}}
+</style>
+</head>
+<body>
+<h1>Urna Eletrônica · Eleição Presidencial</h1>
+<div class="urna">
+  <div class="tela" id="tela"></div>
+  <div class="teclado">
+    <div class="logo">URNA ELETRÔNICA</div>
+    <div class="grid" id="grid"></div>
+    <div class="acoes">
+      <button class="k br" data-a="branco">BRANCO</button>
+      <button class="k co" data-a="corrige">CORRIGE</button>
+      <button class="k ok" data-a="confirma">CONFIRMA</button>
+    </div>
+  </div>
+</div>
+<div class="bu"><button id="bbu">Boletim de urna</button></div>
+<div id="bu"></div>
+
+<script>
+// ► Para colocar as fotos: cole o endereço em data: ou use imagem embutida (base64) em "foto".
+const CANDIDATOS = {
+  "14": {nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
+  "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
+  "22": {nome:"Enzo Perelhal Fidelis", partido:"PL", foto:""}
+};
+const ELEITORES = {"000":"Gustavo Enk","001":"Rafael Donato","002":"Hao Yang","003":"Lorenzo Bonfa","004":"Leonardo Terazan","005":"Gustavo Menegassi","006":"Rodrigo Miyamura","007":"Pedro Henrique Zorzi","008":"Pedro Maqueda","009":"Pedro Prates","010":"Henrique Rocha","011":"Alexandre Ioannis","012":"Arthur Mazer","013":"Arthur Ishii","014":"Felipe Belarmino","015":"Davi Barroso","016":"Davi Leite","017":"Enrico Bonfa","018":"Enzo Fidelis","019":"Pedro Freitas","020":"Gustavo Benini","021":"Ian Sanazar","022":"Kendrid Dubai","023":"Leonardo Tebinka","024":"Lucas Mello","025":"Miguel Arruda","026":"Noah Kawada","027":"Théo"};
+const TOTAL = 28;
+let ocupado = false, chaveAdm = "";
+
+let etapa = "titulo", buf = "", pendente = false, branco = false, tituloAtual = "", erro = "";
+
+async function api(rota, metodo, corpo, chave){
+  try{
+    const h = {"Content-Type":"application/json"}; if(chave) h["x-admin-key"] = chave;
+    const r = await fetch("/api/"+rota, {method:metodo, headers:h, body: corpo ? JSON.stringify(corpo) : undefined});
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return Object.assign({ok:r.ok, status:r.status}, j);
+  }catch(e){ return {ok:false, status:0, erro:"rede"}; }
+}
+
+let ac;
+function tom(freq, dur){
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = freq; o.type = "square"; g.gain.value = .08;
+    o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+  }catch(e){}
+}
+
+const silhueta = '<svg viewBox="0 0 100 120"><circle cx="50" cy="42" r="22" fill="#8d9285"/><path d="M8 120c0-34 20-48 42-48s42 14 42 48z" fill="#8d9285"/></svg>';
+
+function caixas(n, len){
+  let h = '<div class="caixas">';
+  for(let i=0;i<len;i++) h += '<div class="cx'+(i===buf.length?' on':'')+'">'+(buf[i]||"")+'</div>';
+  return h + '</div>';
+}
+
+function render(){
+  const t = document.getElementById("tela");
+  if(etapa === "titulo"){
+    t.innerHTML = '<div class="tit">Identificação do eleitor</div><div class="big">Título de eleitor</div>' +
+      caixas(0,3) + (erro ? '<div class="msg">'+erro+'</div>' : '') +
+      '<div class="rod">Digite os 3 dígitos do título (000 a 027)<br>Tecle CONFIRMA para liberar o voto<br>CORRIGE para apagar</div>';
+  } else if(etapa === "voto"){
+    let h = '<div class="tit">Eleitor: '+(ELEITORES[tituloAtual]||"")+' · Seu voto para</div><div class="big">PRESIDENTE</div>';
+    if(branco){
+      h += '<div class="nulo">VOTO EM BRANCO</div>';
+    } else {
+      h += '<div style="font-size:13px">Número:</div>' + caixas(0,2);
+      if(buf.length === 2){
+        const c = CANDIDATOS[buf];
+        if(c){
+          const img = c.foto ? '<img class="foto" alt="'+c.nome+'" src="'+c.foto+'">' : '<div class="foto">'+silhueta+'</div>';
+          h += '<div class="cand">'+img+'<div class="info"><div>Nome:</div><div class="big">'+c.nome+'</div><div>Número: <b>'+buf+'</b></div><div>Partido: <b>'+c.partido+'</b></div></div></div>';
+        } else {
+          h += '<div class="nulo">NÚMERO ERRADO</div><div class="nulo">VOTO NULO</div>';
+        }
+      }
+    }
+    if(erro) h += '<div class="msg">'+erro+'</div>';
+    if(pendente) h += '<div class="alerta">Tecle CONFIRMA novamente para finalizar o voto</div>';
+    h += '<div class="rod">Aperte a tecla:<br>VERDE para CONFIRMAR este voto<br>LARANJA para CORRIGIR<br>É necessário confirmar duas vezes</div>';
+    t.innerHTML = h;
+  } else {
+    t.innerHTML = '<div class="fim">FIM</div><div class="rod" style="text-align:center">VOTOU</div>';
+  }
+}
+
+function digito(d){
+  if(etapa === "titulo"){ if(buf.length < 3){ buf += d; erro = ""; tom(900,.08);} }
+  else if(etapa === "voto"){ if(!branco && buf.length < 2){ buf += d; pendente = false; erro = ""; tom(900,.08);} }
+  render();
+}
+
+function corrige(){
+  if(etapa === "fim") return;
+  buf = ""; branco = false; pendente = false; erro = ""; tom(600,.1); render();
+}
+
+function brancoKey(){
+  if(etapa !== "voto" || buf.length > 0) return;
+  branco = true; pendente = false; tom(900,.08); render();
+}
+
+async function confirma(){
+  if(ocupado) return;
+  if(etapa === "titulo"){
+    if(buf.length < 3) return;
+    ocupado = true; erro = "VERIFICANDO..."; render();
+    const r = await api("titulo","POST",{titulo:buf});
+    ocupado = false;
+    if(r.ok){ tituloAtual = buf; erro = ""; etapa = "voto"; tom(900,.1); }
+    else { erro = r.erro==="jaVotou" ? "ESTE TÍTULO JÁ VOTOU" : r.erro==="invalido" ? "TÍTULO INVÁLIDO" : "ERRO DE CONEXÃO. TENTE DE NOVO"; tom(300,.4); }
+    buf = ""; render(); return;
+  }
+  if(etapa === "voto"){
+    if(!branco && buf.length < 2) return;
+    if(!pendente){ pendente = true; erro = ""; tom(900,.1); render(); return; }
+    ocupado = true; erro = "REGISTRANDO..."; render();
+    const r = await api("votar","POST",{titulo:tituloAtual, voto: branco ? "branco" : buf});
+    ocupado = false;
+    if(r.ok){
+      etapa = "fim"; buf = ""; branco = false; pendente = false; tituloAtual = ""; erro = "";
+      tom(700,1.6); render();
+      setTimeout(()=>{ etapa = "titulo"; render(); }, 2500);
+    } else if(r.erro === "jaVotou"){
+      etapa = "titulo"; buf = ""; branco = false; pendente = false; tituloAtual = ""; erro = "ESTE TÍTULO JÁ VOTOU"; tom(300,.4); render();
+    } else {
+      pendente = false; erro = "ERRO DE CONEXÃO. CONFIRME DE NOVO"; tom(300,.4); render();
+    }
+  }
+}
+
+async function atualizaBU(){
+  const b = document.getElementById("bu");
+  if(!chaveAdm){ chaveAdm = prompt("Senha do mesário:") || ""; if(!chaveAdm){ b.style.display = "none"; return; } }
+  b.style.display = "block"; b.textContent = "Carregando...";
+  const r = await api("resultados","GET",null,chaveAdm);
+  if(!r.ok){ b.textContent = r.status===401 ? "Senha incorreta." : "Não foi possível carregar o boletim."; chaveAdm = ""; return; }
+  const v = r.votos || {}, nomes = {"14":"14 – Rodrigo Miyamura e Silva (Missão)","50":"50 – Miguel Lucas Arruda (PCL)","22":"22 – Enzo Perelhal Fidelis (PL)"};
+  let h = "<b>Boletim de urna – Presidente</b><br>";
+  ["14","50","22"].forEach(k => h += nomes[k] + ": " + (v[k]||0) + "<br>");
+  h += "Brancos: " + (v.branco||0) + "<br>Nulos: " + (v.nulo||0) + "<br>Votaram: " + r.votaram + " de "+TOTAL+"<br><br>" +
+       '<button id="zera" style="padding:6px 10px">Zerar urna</button>';
+  b.innerHTML = h;
+  document.getElementById("zera").onclick = async () => {
+    if(confirm("Zerar todos os votos e liberar os títulos?")){ await api("zerar","POST",{},chaveAdm); atualizaBU(); }
+  };
+}
+
+const grid = document.getElementById("grid");
+[1,2,3,4,5,6,7,8,9,0].forEach(n => {
+  const b = document.createElement("button");
+  b.className = "k" + (n === 0 ? " z" : ""); b.textContent = n; b.onclick = () => digito(String(n));
+  grid.appendChild(b);
+});
+document.querySelectorAll("[data-a]").forEach(b => b.onclick = () => ({branco:brancoKey, corrige:corrige, confirma:confirma})[b.dataset.a]());
+document.addEventListener("keydown", e => {
+  if(/^[0-9]$/.test(e.key)) digito(e.key);
+  else if(e.key === "Enter") confirma();
+  else if(e.key === "Backspace") corrige();
+});
+document.getElementById("bbu").onclick = () => {
+  const b = document.getElementById("bu");
+  if(b.style.display === "block"){ b.style.display = "none"; } else { atualizaBU(); }
+};
+render();
+</script>
+</body>
+</html>
