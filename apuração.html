@@ -94,11 +94,11 @@ function desenha(d){
 async function carrega(){
   try{
     const r = await fetch("/api/apuracao", {cache:"no-store"});
-    if(!r.ok) throw 0;
+    if(!r.ok) throw new Error("HTTP "+r.status);
     desenha(await r.json());
     document.getElementById("er").textContent = "";
   }catch(e){
-    document.getElementById("er").textContent = "Sem conexão com a apuração. Tentando de novo...";
+    document.getElementById("er").textContent = "Sem conexão com a apuração ("+(e && e.message || e)+"). Tentando de novo...";
   }
 }
 document.getElementById("at").onclick = carrega;
