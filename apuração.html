@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apuração em tempo real</title>
+<style>
+:root{color-scheme:light;--bg:#f3f3f3;--card:#fff;--ink:#1b2333;--muted:#6b7280;--gold:#e6b800;--green:#9db535;--track:#e4e4e4;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#14151a;--card:#1f2128;--ink:#f1f1f1;--muted:#a0a4ae;--track:#34363f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;padding:14px;display:flex;flex-direction:column;align-items:center}
+.w{width:100%;max-width:560px}
+h1{font-size:20px;margin:6px 0 12px}
+.card{background:var(--card);border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #0002}
+.up{font-size:12px;color:var(--muted);margin:4px 0 12px}
+.lin{display:flex;justify-content:space-between;font-size:16px}
+.bar{height:30px;background:var(--track);border-radius:8px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--green);color:#111;font-weight:bold;text-align:center;line-height:30px;min-width:48px;transition:width .6s}
+.top{display:flex;justify-content:flex-end;margin-bottom:10px}
+button{background:var(--track);color:var(--ink);border:0;border-radius:8px;padding:9px 14px;font-weight:bold;cursor:pointer}
+.c{border:3px solid var(--gold);background:var(--card);border-radius:28px;padding:18px;margin-bottom:16px}
+.l{display:flex;justify-content:space-between;align-items:flex-start}
+.av{position:relative;width:104px;height:104px;flex:none}
+.av svg.r{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.av .f{position:absolute;inset:9px;border-radius:50%;overflow:hidden;background:#cfd3c6;display:flex;align-items:flex-end;justify-content:center}
+.av .f img{width:100%;height:100%;object-fit:cover}
+.av .f svg{width:80%}
+.n{text-align:right}
+.p{font-size:38px;font-weight:bold;color:var(--gold);line-height:1.1}
+.v{font-size:16px;color:var(--muted);margin-top:4px}
+.s{font-size:15px;font-weight:bold;color:var(--muted);margin-top:14px}
+.nm{font-size:24px;font-weight:bold;margin:4px 0 10px;text-transform:uppercase}
+.b{display:inline-block;background:#d9962e;color:#fff;font-weight:bold;border-radius:14px;padding:5px 12px;font-size:14px}
+.b.e{background:#1faa3b}
+.m{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--track);font-size:16px}
+.er{color:#c00;font-weight:bold;text-align:center;margin:8px 0}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1>Apuração · Presidente</h1>
+  <div class="card">
+    <div class="lin"><b style="font-size:22px">Dados Gerais</b></div>
+    <div class="up" id="up">Carregando...</div>
+    <div class="lin"><span>Eleitores apurados</span><b id="qt"></b></div>
+    <div class="bar"><i id="pb" style="width:0"></i></div>
+  </div>
+  <div class="top"><button id="at">↻ Atualizar</button></div>
+  <div id="er" class="er"></div>
+  <div id="lista"></div>
+  <div class="card">
+    <div class="m" style="border:0"><span>Votos brancos</span><b id="br"></b></div>
+    <div class="m"><span>Votos nulos</span><b id="nu"></b></div>
+    <div class="m"><span>Total de votos</span><b id="to"></b></div>
+  </div>
+</div>
+<script>
+// ► Fotos: coloque a imagem em "foto" (endereço ou base64), como na urna.
+const CAND = [
+  {n:"14", nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
+  {n:"50", nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
+  {n:"22", nome:"Enzo Perelhal Fidelis", partido:"PL", foto:""}
+];
+const TOTAL = 28;
+const sil = '<svg viewBox="0 0 100 120"><circle cx="50" cy="42" r="22" fill="#8d9285"/><path d="M8 120c0-34 20-48 42-48s42 14 42 48z" fill="#8d9285"/></svg>';
+const pc = x => x.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) + "%";
+const nf = x => x.toLocaleString("pt-BR");
+
+function desenha(d){
+  const v = d.votos || {};
+  const lista = CAND.map(c => Object.assign({v: v[c.n] || 0}, c));
+  const validos = lista.reduce((a,c) => a + c.v, 0);
+  lista.sort((a,b) => b.v - a.v);
+  const br = v.branco || 0, nu = v.nulo || 0, tot = validos + br + nu;
+  const ap = Math.min(100, d.votaram / TOTAL * 100);
+  const completo = d.votaram >= TOTAL;
+  document.getElementById("up").textContent = "Última atualização " + new Date(d.em).toLocaleString("pt-BR") + " (horário local)";
+  document.getElementById("qt").textContent = nf(d.votaram) + " de " + TOTAL;
+  const pb = document.getElementById("pb"); pb.style.width = ap + "%"; pb.textContent = pc(ap);
+  document.getElementById("br").textContent = nf(br) + " (" + pc(tot ? br/tot*100 : 0) + ")";
+  document.getElementById("nu").textContent = nf(nu) + " (" + pc(tot ? nu/tot*100 : 0) + ")";
+  document.getElementById("to").textContent = nf(tot);
+  document.getElementById("lista").innerHTML = lista.map((c,i) => {
+    const p = validos ? c.v / validos * 100 : 0;
+    const img = c.foto ? '<img alt="" src="'+c.foto+'">' : sil;
+    let badge = "";
+    if(i === 0 && validos > 0 && c.v > lista[1].v) badge = completo ? '<span class="b e">Eleito</span>' : '<span class="b">Na liderança</span>';
+    return '<div class="c"><div class="l"><div class="av"><svg class="r" viewBox="0 0 110 110"><circle cx="55" cy="55" r="51" fill="none" stroke="var(--track)" stroke-width="4"/><circle cx="55" cy="55" r="51" fill="none" stroke="#e6b800" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+(p*3.2044)+' 320.44"/></svg><div class="f">'+img+'</div></div>' +
+      '<div class="n"><div class="p">'+pc(p)+'</div><div class="v">'+nf(c.v)+' votos</div></div></div>' +
+      '<div class="s">'+c.partido+' – '+c.n+'</div><div class="nm">'+c.nome+'</div>'+badge+'</div>';
+  }).join("");
+}
+
+async function carrega(){
+  try{
+    const r = await fetch("/api/apuracao", {cache:"no-store"});
+    if(!r.ok) throw 0;
+    desenha(await r.json());
+    document.getElementById("er").textContent = "";
+  }catch(e){
+    document.getElementById("er").textContent = "Sem conexão com a apuração. Tentando de novo...";
+  }
+}
+document.getElementById("at").onclick = carrega;
+carrega(); setInterval(carrega, 5000);
+</script>
+</body>
+</html>
