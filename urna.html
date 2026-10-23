@@ -66,6 +66,23 @@ const CANDIDATOS = {
 };
 let ocupado = false;
 
+// Som oficial da urna ao finalizar o voto (arquivo confirma-urna.mp3, na raiz do site)
+const som = new Audio("/confirma-urna.mp3"); som.preload = "auto";
+let somOk = false;
+function destravaSom(){
+  if(somOk) return; somOk = true;
+  som.muted = true;
+  const p = som.play();
+  if(p && p.then) p.then(()=>{ som.pause(); som.currentTime = 0; som.muted = false; }).catch(()=>{ som.muted = false; somOk = false; });
+}
+function tocaFim(){
+  try{
+    som.muted = false; som.currentTime = 0;
+    const p = som.play(); if(p && p.catch) p.catch(()=>tom(700,1.6));
+  }catch(e){ tom(700,1.6); }
+}
+["click","touchend","keydown"].forEach(ev => document.addEventListener(ev, destravaSom));
+
 let etapa = "aguarde", buf = "", pendente = false, branco = false, tituloAtual = "", nomeAtual = "", erro = "";
 
 async function api(rota, metodo, corpo, chave){
