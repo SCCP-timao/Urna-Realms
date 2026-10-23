@@ -69,11 +69,10 @@ const CANDIDATOS = {
   "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
   "22": {nome:"Lorenzo Bonfa", partido:"PL", foto:""}
 };
-const ELEITORES = {"532":"Gustavo Enk","935":"Rafael Donato","718":"Hao Yang","542":"Lorenzo Bonfa","286":"Leonardo Terazan","563":"Gustavo Menegassi","207":"Rodrigo Miyamura","655":"Pedro Henrique Zorzi","403":"Pedro Maqueda","547":"Pedro Prates","757":"Henrique Rocha","433":"Alexandre Ioannis","444":"Arthur Mazer","989":"Arthur Ishii","845":"Felipe Belarmino","988":"Barroso","318":"Davi Leite","875":"Enrico Bonfa","868":"Enzo Fidelis","926":"Pedro Freitas","691":"Gustavo Benini","689":"Ian Sanazar","819":"Kendrid Dubai","690":"Leonardo Tebinka","661":"Lucas Mello","138":"Miguel Arruda","898":"Noah Kawada","909":"Théo"};
 const TOTAL = 28;
 let ocupado = false, chaveAdm = "";
 
-let etapa = "titulo", buf = "", pendente = false, branco = false, tituloAtual = "", erro = "";
+let etapa = "titulo", buf = "", pendente = false, branco = false, tituloAtual = "", nomeAtual = "", erro = "";
 
 async function api(rota, metodo, corpo, chave){
   try{
@@ -106,10 +105,10 @@ function render(){
   const t = document.getElementById("tela");
   if(etapa === "titulo"){
     t.innerHTML = '<div class="tit">Identificação do eleitor</div><div class="big">Título de eleitor</div>' +
-      caixas(0,3) + (erro ? '<div class="msg">'+erro+'</div>' : '') +
-      '<div class="rod">Digite os 3 dígitos do seu título<br>Tecle CONFIRMA para liberar o voto<br>CORRIGE para apagar</div>';
+      caixas(0,4) + (erro ? '<div class="msg">'+erro+'</div>' : '') +
+      '<div class="rod">Digite os 4 dígitos do seu título<br>Tecle CONFIRMA para liberar o voto<br>CORRIGE para apagar</div>';
   } else if(etapa === "voto"){
-    let h = '<div class="tit">Eleitor: '+(ELEITORES[tituloAtual]||"")+' · Seu voto para</div><div class="big">PRESIDENTE</div>';
+    let h = '<div class="tit">Eleitor: '+nomeAtual+' · Seu voto para</div><div class="big">PRESIDENTE</div>';
     if(branco){
       h += '<div class="nulo">VOTO EM BRANCO</div>';
     } else {
@@ -134,7 +133,7 @@ function render(){
 }
 
 function digito(d){
-  if(etapa === "titulo"){ if(buf.length < 3){ buf += d; erro = ""; tom(900,.08);} }
+  if(etapa === "titulo"){ if(buf.length < 4){ buf += d; erro = ""; tom(900,.08);} }
   else if(etapa === "voto"){ if(!branco && buf.length < 2){ buf += d; pendente = false; erro = ""; tom(900,.08);} }
   render();
 }
@@ -152,11 +151,11 @@ function brancoKey(){
 async function confirma(){
   if(ocupado) return;
   if(etapa === "titulo"){
-    if(buf.length < 3) return;
+    if(buf.length < 4) return;
     ocupado = true; erro = "VERIFICANDO..."; render();
     const r = await api("titulo","POST",{titulo:buf});
     ocupado = false;
-    if(r.ok){ tituloAtual = buf; erro = ""; etapa = "voto"; tom(900,.1); }
+    if(r.ok){ tituloAtual = buf; nomeAtual = r.nome || ""; erro = ""; etapa = "voto"; tom(900,.1); }
     else { erro = r.erro==="jaVotou" ? "ESTE TÍTULO JÁ VOTOU" : r.erro==="invalido" ? "TÍTULO INVÁLIDO" : r.erro==="fechado" ? "URNA FECHADA. "+r.mensagem : "ERRO DE CONEXÃO. TENTE DE NOVO"; tom(300,.4); }
     buf = ""; render(); return;
   }
