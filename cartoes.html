@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Títulos de eleitor</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef0f4;--ink:#111;--card:#fff;--bt:#0b4f8a;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#14151a;--ink:#eee;--card:#22242c}}
+*{box-sizing:border-box}
+body{margin:0;padding:14px;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+h1{font-size:19px;margin:4px 0 6px}
+.nota{font-size:13px;opacity:.75;margin-bottom:12px}
+.msg{color:#c00;font-weight:bold;margin:8px 0}
+.lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-top:12px}
+.item{background:var(--card);border-radius:14px;padding:12px;box-shadow:0 2px 8px #0002}
+.flip{perspective:900px;cursor:pointer}
+.in{position:relative;width:100%;aspect-ratio:900/560;transition:transform .7s;transform-style:preserve-3d}
+.flip.v .in{transform:rotateY(180deg)}
+.in canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:10px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.in canvas.t{transform:rotateY(180deg)}
+.nm{font-weight:bold;margin:10px 0 4px}
+.dica{font-size:12px;opacity:.65;margin-bottom:8px}
+button{background:var(--bt);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:bold;cursor:pointer}
+button.s{background:#555}
+</style>
+</head>
+<body>
+<h1>Títulos de eleitor (simulados)</h1>
+<div class="nota">Acesso restrito. Toque no título para virar frente e verso e baixe o de cada eleitor.</div>
+<button id="en">Entrar</button> <button id="td" class="s" style="display:none">Baixar todos</button>
+<div id="ms" class="msg"></div>
+<div class="lista" id="ls"></div>
+<script>
+let senha = "", dados = [];
+const hoje = new Date().toLocaleDateString("pt-BR");
+
+function campo(x, r, v, px, py, tam){
+  x.fillStyle = "#46607a"; x.font = "bold 16px Arial"; x.fillText(r, px, py);
+  x.fillStyle = "#111"; x.font = "bold " + (tam || 34) + "px Arial"; x.fillText(v, px, py + 40);
+}
+
+function frente(c, nome, num){
+  c.width = 900; c.height = 560; const x = c.getContext("2d");
+  const g = x.createLinearGradient(0,0,900,560); g.addColorStop(0,"#fdf6d8"); g.addColorStop(1,"#cfe6f7");
+  x.fillStyle = g; x.fillRect(0,0,900,560);
+  x.fillStyle = "#0b4f8a"; x.fillRect(0,0,900,110);
+  x.fillStyle = "#fff"; x.font = "bold 42px Arial"; x.fillText("TÍTULO DE ELEITOR", 40, 62);
+  x.font = "18px Arial"; x.fillText("SIMULAÇÃO · SEM VALIDADE OFICIAL", 40, 92);
+  x.beginPath(); x.arc(820,55,34,0,7); x.fillStyle = "#f2c200"; x.fill();
+  x.strokeStyle = "#0b4f8a"; x.lineWidth = 7; x.beginPath(); x.moveTo(804,56); x.lineTo(816,70); x.lineTo(840,40); x.stroke();
+  campo(x, "NOME", nome.toUpperCase(), 40, 170, nome.length > 22 ? 28 : 34);
+  campo(x, "Nº DO TÍTULO", num, 40, 275, 46);
+  campo(x, "ZONA", "001", 330, 275); campo(x, "SEÇÃO", "0001", 480, 275);
+  campo(x, "EMISSÃO", hoje, 40, 390, 30); campo(x, "ELEIÇÃO", "Presidencial (simulada)", 330, 390, 30);
+  x.setLineDash([8,6]); x.strokeStyle = "#46607a"; x.lineWidth = 2; x.strokeRect(710,140,150,190); x.setLineDash([]);
+  x.fillStyle = "#8d9285"; x.beginPath(); x.arc(785,215,32,0,7); x.fill(); x.beginPath(); x.ellipse(785,320,55,45,0,Math.PI,0); x.fill();
+  x.fillStyle = "#0b4f8a"; x.fillRect(0,500,900,60);
+  x.fillStyle = "#fff"; x.font = "16px Arial"; x.fillText("Documento fictício para uso exclusivo nesta votação.", 40, 536);
+}
+
+function verso(c, nome, num){
+  c.width = 900; c.height = 560; const x = c.getContext("2d");
+  const g = x.createLinearGradient(0,0,900,560); g.addColorStop(0,"#0b4f8a"); g.addColorStop(1,"#1d7bc4");
+  x.fillStyle = g; x.fillRect(0,0,900,560);
+  x.fillStyle = "#fff"; x.font = "bold 34px Arial"; x.fillText("COMO VOTAR", 40, 70);
+  x.font = "24px Arial";
+  ["1. Abra o site da urna no celular.", "2. Digite os 4 números do seu título e CONFIRMA.", "3. Digite o número do candidato e CONFIRMA duas vezes.", "4. Cada título vota uma única vez. Não compartilhe."].forEach((t,i) => x.fillText(t, 40, 130 + i*42));
+  x.fillStyle = "#fff"; x.fillRect(40,330,820,110);
+  let sd = +num; x.fillStyle = "#111";
+  for(let i = 0, px = 52; px < 840; i++){ sd = (sd * 9301 + 49297) % 233280; const w = 2 + (sd % 4); if(i % 2 === 0) x.fillRect(px, 342, w, 86); px += w + 2; }
+  x.fillStyle = "#fff"; x.font = "bold 26px Arial"; x.fillText("Nº " + num + " · " + nome, 40, 485);
+  x.font = "15px Arial"; x.fillText(location.origin, 40, 530);
+}
+
+function baixar(d){
+  const a = document.createElement("canvas"), b = document.createElement("canvas");
+  frente(a, d.nome, d.numero); verso(b, d.nome, d.numero);
+  const t = document.createElement("canvas"); t.width = 900; t.height = 1160;
+  const x = t.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0,0,900,1160); x.drawImage(a,0,0); x.drawImage(b,0,600);
+  const l = document.createElement("a");
+  l.download = "titulo-" + d.numero + "-" + d.nome.replace(/\s+/g,"-") + ".png";
+  l.href = t.toDataURL("image/png"); l.click();
+}
+
+function mostra(){
+  const ls = document.getElementById("ls"); ls.innerHTML = "";
+  dados.forEach(d => {
+    const it = document.createElement("div"); it.className = "item";
+    it.innerHTML = '<div class="flip"><div class="in"><canvas class="f"></canvas><canvas class="t"></canvas></div></div><div class="nm"></div><div class="dica">Toque no título para virar</div>';
+    frente(it.querySelector(".f"), d.nome, d.numero); verso(it.querySelector(".t"), d.nome, d.numero);
+    it.querySelector(".flip").onclick = e => e.currentTarget.classList.toggle("v");
+    it.querySelector(".nm").textContent = d.nome + " · " + d.numero;
+    const bt = document.createElement("button"); bt.textContent = "Baixar PNG"; bt.onclick = () => baixar(d);
+    it.appendChild(bt); ls.appendChild(it);
+  });
+  document.getElementById("td").style.display = "inline-block";
+}
+
+async function entrar(){
+  senha = prompt("Senha de acesso:") || ""; if(!senha) return;
+  const ms = document.getElementById("ms"); ms.textContent = "Carregando...";
+  try{
+    const r = await fetch("/api/cartoes", {headers:{"x-admin-key":senha}, cache:"no-store"});
+    if(!r.ok){ ms.textContent = r.status === 401 ? "Senha incorreta." : "Erro ao carregar (HTTP " + r.status + ")."; return; }
+    dados = (await r.json()).titulos; ms.textContent = ""; mostra();
+  }catch(e){ ms.textContent = "Sem conexão."; }
+}
+document.getElementById("en").onclick = entrar;
+document.getElementById("td").onclick = async () => { for(const d of dados){ baixar(d); await new Promise(r => setTimeout(r, 600)); } };
+</script>
+</body>
+</html>
