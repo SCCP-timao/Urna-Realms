@@ -68,8 +68,7 @@ const CANDIDATOS = {
   "14": {nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
   "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
   "22": {nome:"Lorenzo Bonfa", partido:"PL", foto:""}
-};
-const ELEITORES = {"000":"Gustavo Enk","001":"Rafael Donato","002":"Hao Yang","003":"Lorenzo Bonfa","004":"Leonardo Terazan","005":"Gustavo Menegassi","006":"Rodrigo Miyamura","007":"Pedro Henrique Zorzi","008":"Pedro Maqueda","009":"Pedro Prates","010":"Henrique Rocha","011":"Alexandre Ioannis","012":"Arthur Mazer","013":"Arthur Ishii","014":"Felipe Belarmino","015":"Barroso","016":"Davi Leite","017":"Enrico Bonfa","018":"Enzo Fidelis","019":"Pedro Freitas","020":"Gustavo Benini","021":"Ian Sanazar","022":"Kendrid Dubai","023":"Leonardo Tebinka","024":"Lucas Mello","025":"Miguel Arruda","026":"Noah Kawada","027":"Théo"};
+const ELEITORES = {"532":"Gustavo Enk","935":"Rafael Donato","718":"Hao Yang","542":"Lorenzo Bonfa","286":"Leonardo Terazan","563":"Gustavo Menegassi","207":"Rodrigo Miyamura","655":"Pedro Henrique Zorzi","403":"Pedro Maqueda","547":"Pedro Prates","757":"Henrique Rocha","433":"Alexandre Ioannis","444":"Arthur Mazer","989":"Arthur Ishii","845":"Felipe Belarmino","988":"Barroso","318":"Davi Leite","875":"Enrico Bonfa","868":"Enzo Fidelis","926":"Pedro Freitas","691":"Gustavo Benini","689":"Ian Sanazar","819":"Kendrid Dubai","690":"Leonardo Tebinka","661":"Lucas Mello","138":"Miguel Arruda","898":"Noah Kawada","909":"Théo"};
 const TOTAL = 28;
 let ocupado = false, chaveAdm = "";
 
@@ -107,7 +106,7 @@ function render(){
   if(etapa === "titulo"){
     t.innerHTML = '<div class="tit">Identificação do eleitor</div><div class="big">Título de eleitor</div>' +
       caixas(0,3) + (erro ? '<div class="msg">'+erro+'</div>' : '') +
-      '<div class="rod">Digite os 3 dígitos do título (000 a 027)<br>Tecle CONFIRMA para liberar o voto<br>CORRIGE para apagar</div>';
+      '<div class="rod">Digite os 3 dígitos do seu título<br>Tecle CONFIRMA para liberar o voto<br>CORRIGE para apagar</div>';
   } else if(etapa === "voto"){
     let h = '<div class="tit">Eleitor: '+(ELEITORES[tituloAtual]||"")+' · Seu voto para</div><div class="big">PRESIDENTE</div>';
     if(branco){
