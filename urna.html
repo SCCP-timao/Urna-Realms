@@ -164,7 +164,7 @@ async function confirma(){
   ocupado = false;
   if(r.ok){
     etapa = "fim"; buf = ""; branco = false; pendente = false; tituloAtual = ""; erro = "";
-    tom(700,1.6); render();
+    tocaFim(); render();
     sessionStorage.removeItem("titulo");
     setTimeout(()=>{ location.href = "/?votou=1"; }, 2500);
   } else if(r.erro === "jaVotou"){
