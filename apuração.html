@@ -34,6 +34,14 @@ button{background:var(--track);color:var(--ink);border:0;border-radius:8px;paddi
 .b.e{background:#1faa3b}
 .m{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--track);font-size:16px}
 .er{color:#c00;font-weight:bold;text-align:center;margin:8px 0}
+.ver{border-radius:24px;padding:18px;margin-bottom:16px;color:#fff;background:#6b7280}
+.ver.ok{background:#1a7f37}.ver.t2{background:#c9741a}
+.vt{font-size:22px;font-weight:bold;line-height:1.25}
+.vs{font-size:14px;margin-top:8px;line-height:1.5;opacity:.95}
+details.card summary{cursor:pointer;font-weight:bold;font-size:16px}
+.cl{font-size:14px;line-height:1.7;margin-top:10px}
+.cl b{white-space:nowrap}
+.cl .r{margin-top:8px;padding-top:8px;border-top:1px solid var(--track)}
 </style>
 </head>
 <body>
@@ -45,6 +53,8 @@ button{background:var(--track);color:var(--ink);border:0;border-radius:8px;paddi
     <div class="lin"><span>Eleitores apurados</span><b id="qt"></b></div>
     <div class="bar"><i id="pb" style="width:0"></i></div>
   </div>
+  <div id="veredito" class="ver">Carregando...</div>
+  <details class="card"><summary>Ver o cálculo</summary><div class="cl" id="calc"></div></details>
   <div class="top"><button id="at">↻ Atualizar</button></div>
   <div id="er" class="er"></div>
   <div id="lista"></div>
@@ -59,12 +69,79 @@ button{background:var(--track);color:var(--ink);border:0;border-radius:8px;paddi
 const CAND = [
   {n:"14", nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
   {n:"50", nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
-    {n:"22", nome:"Lorenzo Bonfa", partido:"PL", foto:""}
+  {n:"22", nome:"Lorenzo Bonfa", partido:"PL", foto:""}
 ];
 const TOTAL = 28;
 const sil = '<svg viewBox="0 0 100 120"><circle cx="50" cy="42" r="22" fill="#8d9285"/><path d="M8 120c0-34 20-48 42-48s42 14 42 48z" fill="#8d9285"/></svg>';
 const pc = x => x.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) + "%";
 const nf = x => x.toLocaleString("pt-BR");
+
+// ► REGRA DA APURAÇÃO
+// true  = regra do grupo: 50% exatos já elegem, desde que nenhum outro candidato consiga empatar.
+// false = regra oficial brasileira: precisa de MAIS de 50% dos votos válidos.
+const ACEITA_50 = true;
+
+function analisa(lista, validos, R){
+  const a = lista[0].v, b = lista[1].v, c = (lista[2] || {v:0}).v, den = validos + R;
+  const maxOutro = b + R;                               // o 2º colocado, se receber todos os que faltam
+  const passa = (A, D) => ACEITA_50 ? 2*A >= D : 2*A > D;
+  const r = {a:a, b:b, c:c, R:R, validos:validos, den:den, maxOutro:maxOutro,
+             pior: den ? a/den*100 : 0, melhor: den ? (a+R)/den*100 : 0};
+  r.garante = passa(a, den);                            // passo 1: pior caso do líder
+  r.alcancado = maxOutro >= a;                          // passo 2: algum outro consegue alcançá-lo?
+  r.podeGanhar = passa(a + R, den) && (!ACEITA_50 || R > 0 || b < a);   // passo 3: melhor caso do líder
+  if(validos === 0) r.estado = R === 0 ? "sem" : "aguardando";
+  else if(r.garante && !r.alcancado) r.estado = "eleito";
+  else if(!r.podeGanhar) r.estado = "turno2";
+  else {
+    r.estado = "andamento";
+    for(let g = 0; g <= R; g++){                        // quantos dos que faltam o líder precisa receber
+      if(passa(a + g, den) && b + (R - g) < a + g){ r.faltam = g; break; }
+    }
+  }
+  r.empate2 = R === 0 && b > 0 && b === c;
+  return r;
+}
+
+function veredito(an, lista){
+  const el = document.getElementById("veredito"), n1 = lista[0].nome, n2 = lista[1].nome, R = an.R;
+  const pl = (n, u, p) => n + " " + (n === 1 ? u : p);
+  let cls = "ver", t = "", sub = "";
+  if(an.estado === "eleito"){
+    cls += " ok"; t = "✔ " + n1 + " ELEITO NO 1º TURNO";
+    sub = "Tem " + nf(an.a) + " votos (" + pc(an.a/an.validos*100) + " dos votos válidos). ";
+    if(R === 0) sub += "Todos os eleitores votaram e ninguém o alcançou.";
+    else if(2*an.a > an.den) sub += "Mesmo que os " + R + " eleitores que faltam votem todos em outros candidatos, ele continua com mais de 50% dos votos válidos.";
+    else sub += "No pior caso ele fica com exatamente 50%, mas o 2º colocado chegaria a no máximo " + an.maxOutro + " votos, sem alcançá-lo.";
+  } else if(an.estado === "turno2"){
+    cls += " t2"; t = "⚠ 2º TURNO: " + n1 + " × " + n2;
+    sub = R > 0 ? "Nem se os " + R + " eleitores que faltam votarem todos no líder ele garante a vitória no 1º turno. Os finalistas podem mudar até o fim da votação."
+                : "Ninguém conseguiu a vitória no 1º turno. Finalistas definidos.";
+    if(an.empate2) sub = "Empate pelo 2º lugar: " + lista[1].nome + " e " + lista[2].nome + " têm o mesmo número de votos. Definir o desempate pelo critério combinado.";
+  } else if(an.estado === "andamento"){
+    t = "⏳ Apuração em andamento";
+    sub = "Ainda pode haver vencedor no 1º turno ou 2º turno. " + (an.faltam !== undefined
+      ? n1 + " precisa de mais " + pl(an.faltam, "voto", "votos") + " (restam " + pl(R, "eleitor", "eleitores") + " para votar) para ter a vitória garantida no 1º turno." : "");
+  } else if(an.estado === "sem"){
+    t = "Sem votos válidos"; sub = "Todos os votos foram brancos ou nulos. É preciso uma nova votação.";
+  } else { t = "Aguardando os primeiros votos"; }
+  el.className = cls; el.innerHTML = '<div class="vt">' + t + '</div>' + (sub ? '<div class="vs">' + sub + '</div>' : "");
+}
+
+function calculo(an, lista, total, votaram){
+  const sim = x => x ? "<b>sim</b>" : "<b>não</b>", lim = ACEITA_50 ? "50% ou mais" : "mais de 50%";
+  if(an.validos === 0){ document.getElementById("calc").innerHTML = "Ainda não há votos válidos para calcular."; return; }
+  document.getElementById("calc").innerHTML =
+    "Eleitores: <b>" + total + "</b> · já votaram: <b>" + votaram + "</b> · faltam: <b>" + an.R + "</b><br>" +
+    "Votos válidos (só candidatos): <b>" + an.validos + "</b>. Brancos e nulos não entram na conta.<br>" +
+    "Regra: " + (ACEITA_50 ? "é eleito no 1º turno quem garante <b>50% ou mais</b> dos votos válidos e não pode ser alcançado por nenhum outro candidato."
+                          : "é eleito no 1º turno quem passa de <b>50%</b> dos votos válidos.") +
+    '<div class="r">Líder: <b>' + lista[0].nome + "</b> com <b>" + an.a + "</b> votos.<br>" +
+    "<b>1)</b> Pior caso (todos os " + an.R + " que faltam votam em outros): " + an.a + " ÷ (" + an.validos + " + " + an.R + ") = <b>" + pc(an.pior) + "</b> → garante " + lim + "? " + sim(an.garante) + ".</div>" +
+    '<div class="r"><b>2)</b> 2º colocado (' + lista[1].nome + ") tem <b>" + an.b + "</b> votos. Se receber todos os " + an.R + " que faltam: " + an.b + " + " + an.R + " = <b>" + an.maxOutro + "</b> → alcança o líder (" + an.a + ")? " + sim(an.alcancado) + ".</div>" +
+    '<div class="r"><b>3)</b> Melhor caso do líder (todos os ' + an.R + " que faltam votam nele): (" + an.a + " + " + an.R + ") ÷ (" + an.validos + " + " + an.R + ") = <b>" + pc(an.melhor) + "</b> → ainda pode vencer no 1º turno? " + sim(an.podeGanhar) + ".</div>" +
+    '<div class="r">Conclusão: se o passo 1 é <b>sim</b> e o passo 2 é <b>não</b>, está <b>eleito</b>. Se o passo 3 é <b>não</b>, é <b>2º turno</b>. Fora disso, segue <b>em aberto</b>.</div>';
+}
 
 function desenha(d){
   const v = d.votos || {};
@@ -73,18 +150,22 @@ function desenha(d){
   lista.sort((a,b) => b.v - a.v);
   const br = v.branco || 0, nu = v.nulo || 0, tot = validos + br + nu;
   const ap = Math.min(100, d.votaram / TOTAL * 100);
-  const completo = d.votaram >= TOTAL;
+  const R = Math.max(0, TOTAL - d.votaram);
+  const an = analisa(lista, validos, R);
   document.getElementById("up").textContent = "Última atualização " + new Date(d.em).toLocaleString("pt-BR") + " (horário local)";
   document.getElementById("qt").textContent = nf(d.votaram) + " de " + TOTAL;
   const pb = document.getElementById("pb"); pb.style.width = ap + "%"; pb.textContent = pc(ap);
   document.getElementById("br").textContent = nf(br) + " (" + pc(tot ? br/tot*100 : 0) + ")";
   document.getElementById("nu").textContent = nf(nu) + " (" + pc(tot ? nu/tot*100 : 0) + ")";
   document.getElementById("to").textContent = nf(tot);
+  veredito(an, lista); calculo(an, lista, TOTAL, d.votaram);
   document.getElementById("lista").innerHTML = lista.map((c,i) => {
     const p = validos ? c.v / validos * 100 : 0;
     const img = c.foto ? '<img alt="" src="'+c.foto+'">' : sil;
     let badge = "";
-    if(i === 0 && validos > 0 && c.v > lista[1].v) badge = completo ? '<span class="b e">Eleito</span>' : '<span class="b">Na liderança</span>';
+    if(an.estado === "eleito" && i === 0) badge = '<span class="b e">Eleito</span>';
+    else if(an.estado === "turno2" && i < 2) badge = '<span class="b">2º turno</span>';
+    else if(an.estado === "andamento" && i === 0) badge = '<span class="b">Na liderança</span>';
     return '<div class="c"><div class="l"><div class="av"><svg class="r" viewBox="0 0 110 110"><circle cx="55" cy="55" r="51" fill="none" stroke="var(--track)" stroke-width="4"/><circle cx="55" cy="55" r="51" fill="none" stroke="#e6b800" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+(p*3.2044)+' 320.44"/></svg><div class="f">'+img+'</div></div>' +
       '<div class="n"><div class="p">'+pc(p)+'</div><div class="v">'+nf(c.v)+' votos</div></div></div>' +
       '<div class="s">'+c.partido+' – '+c.n+'</div><div class="nm">'+c.nome+'</div>'+badge+'</div>';
