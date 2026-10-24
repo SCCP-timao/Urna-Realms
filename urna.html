@@ -3,187 +3,214 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Apuração em tempo real</title>
+<title>Urna Eletrônica</title>
 <style>
-:root{color-scheme:light;--bg:#f3f3f3;--card:#fff;--ink:#1b2333;--muted:#6b7280;--gold:#e6b800;--green:#9db535;--track:#e4e4e4;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#14151a;--card:#1f2128;--ink:#f1f1f1;--muted:#a0a4ae;--track:#34363f}}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+--bg:#e9e9e4;--body:#d8d8d2;--ink:#111;--muted:#555;--screen:#e8ecdf;--key:#2b2b2b;--keyt:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#16171a;--body:#2a2b30;--ink:#eee;--muted:#aaa}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#16171a;--body:#2a2b30;--ink:#eee;--muted:#aaa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;padding:14px;display:flex;flex-direction:column;align-items:center}
-.w{width:100%;max-width:560px}
-h1{font-size:20px;margin:6px 0 12px}
-.card{background:var(--card);border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px #0002}
-.up{font-size:12px;color:var(--muted);margin:4px 0 12px}
-.lin{display:flex;justify-content:space-between;font-size:16px}
-.bar{height:30px;background:var(--track);border-radius:8px;overflow:hidden;margin-top:8px}
-.bar i{display:block;height:100%;background:var(--green);color:#111;font-weight:bold;text-align:center;line-height:30px;min-width:48px;transition:width .6s}
-.top{display:flex;justify-content:flex-end;margin-bottom:10px}
-button{background:var(--track);color:var(--ink);border:0;border-radius:8px;padding:9px 14px;font-weight:bold;cursor:pointer}
-.c{border:3px solid var(--gold);background:var(--card);border-radius:28px;padding:18px;margin-bottom:16px}
-.l{display:flex;justify-content:space-between;align-items:flex-start}
-.av{position:relative;width:104px;height:104px;flex:none}
-.av svg.r{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
-.av .f{position:absolute;inset:9px;border-radius:50%;overflow:hidden;background:#cfd3c6;display:flex;align-items:flex-end;justify-content:center}
-.av .f img{width:100%;height:100%;object-fit:cover}
-.av .f svg{width:80%}
-.n{text-align:right}
-.p{font-size:38px;font-weight:bold;color:var(--gold);line-height:1.1}
-.v{font-size:16px;color:var(--muted);margin-top:4px}
-.s{font-size:15px;font-weight:bold;color:var(--muted);margin-top:14px}
-.nm{font-size:24px;font-weight:bold;margin:4px 0 10px;text-transform:uppercase}
-.b{display:inline-block;background:#d9962e;color:#fff;font-weight:bold;border-radius:14px;padding:5px 12px;font-size:14px}
-.b.e{background:#1faa3b}
-.m{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--track);font-size:16px}
-.er{color:#c00;font-weight:bold;text-align:center;margin:8px 0}
-.ver{border-radius:24px;padding:18px;margin-bottom:16px;color:#fff;background:#6b7280}
-.ver.ok{background:#1a7f37}.ver.t2{background:#c9741a}
-.vt{font-size:22px;font-weight:bold;line-height:1.25}
-.vs{font-size:14px;margin-top:8px;line-height:1.5;opacity:.95}
-details.card summary{cursor:pointer;font-weight:bold;font-size:16px}
-.cl{font-size:14px;line-height:1.7;margin-top:10px}
-.cl b{white-space:nowrap}
-.cl .r{margin-top:8px;padding-top:8px;border-top:1px solid var(--track)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{font-size:15px;margin:4px 0 10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.urna{display:flex;gap:12px;background:var(--body);padding:14px;border-radius:14px;width:100%;max-width:820px;box-shadow:0 6px 24px #0004}
+.tela{flex:1 1 60%;background:var(--screen);color:#111;border:4px solid #888;border-radius:6px;min-height:380px;padding:14px;position:relative;font-size:15px;display:flex;flex-direction:column}
+.teclado{flex:0 0 190px;display:flex;flex-direction:column;gap:8px}
+.logo{background:#111;color:#fff;text-align:center;font-size:12px;padding:6px;border-radius:4px;letter-spacing:.1em}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.k{background:var(--key);color:var(--keyt);border:0;border-radius:5px;font-size:20px;font-weight:bold;padding:12px 0;cursor:pointer;box-shadow:0 3px 0 #000;-webkit-tap-highlight-color:transparent}
+.k:active{transform:translateY(2px);box-shadow:0 1px 0 #000}
+.k.z{grid-column:2}
+.acoes{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.acoes .k{font-size:11px;padding:14px 0}
+.br{background:#fff;color:#111}.co{background:#ee7d1b;color:#111}.ok{background:#1faa3b;color:#fff;grid-column:1/3;font-size:14px!important;padding:18px 0!important}
+.tit{font-size:13px;color:#333;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:10px}
+.big{font-size:20px;font-weight:bold;margin:6px 0}
+.caixas{display:flex;gap:6px;margin:8px 0}
+.cx{width:38px;height:46px;border:2px solid #111;font-size:28px;font-weight:bold;display:flex;align-items:center;justify-content:center;background:#fff}
+.cx.on{outline:3px solid #1faa3b}
+.cand{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.foto{width:96px;height:126px;border:2px solid #111;background:#cfd3c6;object-fit:cover;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.foto svg{width:80%}
+.info div{margin:3px 0}
+.rod{margin-top:auto;border-top:1px solid #999;padding-top:6px;font-size:12px;color:#222;line-height:1.5}
+.alerta{background:#111;color:#fff;padding:6px 8px;margin-top:8px;font-weight:bold;font-size:13px;animation:pisca 1s steps(2) infinite}
+@keyframes pisca{50%{background:#a00}}
+.fim{margin:auto;text-align:center;font-size:84px;font-weight:bold;letter-spacing:.1em}
+.msg{color:#a00;font-weight:bold;margin-top:8px}
+.nulo{font-size:20px;font-weight:bold;margin-top:10px}
+@media (max-width:620px){.urna{flex-direction:column}.teclado{flex:none}.tela{min-height:340px}}
 </style>
 </head>
 <body>
-<div class="w">
-  <h1>Apuração · Presidente</h1>
-  <div class="card">
-    <div class="lin"><b style="font-size:22px">Dados Gerais</b></div>
-    <div class="up" id="up">Carregando...</div>
-    <div class="lin"><span>Eleitores apurados</span><b id="qt"></b></div>
-    <div class="bar"><i id="pb" style="width:0"></i></div>
-  </div>
-  <div id="veredito" class="ver">Carregando...</div>
-  <details class="card"><summary>Ver o cálculo</summary><div class="cl" id="calc"></div></details>
-  <div class="top"><button id="at">↻ Atualizar</button></div>
-  <div id="er" class="er"></div>
-  <div id="lista"></div>
-  <div class="card">
-    <div class="m" style="border:0"><span>Votos brancos</span><b id="br"></b></div>
-    <div class="m"><span>Votos nulos</span><b id="nu"></b></div>
-    <div class="m"><span>Total de votos</span><b id="to"></b></div>
+<h1>Urna Eletrônica · Eleição Presidencial</h1>
+<div class="urna">
+  <div class="tela" id="tela"></div>
+  <div class="teclado">
+    <div class="logo">URNA ELETRÔNICA</div>
+    <div class="grid" id="grid"></div>
+    <div class="acoes">
+      <button class="k br" data-a="branco">BRANCO</button>
+      <button class="k co" data-a="corrige">CORRIGE</button>
+      <button class="k ok" data-a="confirma">CONFIRMA</button>
+    </div>
   </div>
 </div>
+
 <script>
-// ► Fotos: coloque a imagem em "foto" (endereço ou base64), como na urna.
-const CAND = [
-  {n:"14", nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
-  {n:"50", nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
-  {n:"22", nome:"Lorenzo Bonfa", partido:"PL", foto:""}
-];
+// ► Para colocar as fotos: cole o endereço em data: ou use imagem embutida (base64) em "foto".
+const CANDIDATOS = {
+  "14": {nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
+  "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
+  "22": {nome:"Lorenzo Bonfa", partido:"PL", foto:""}
+};
 const TOTAL = 28;
-const sil = '<svg viewBox="0 0 100 120"><circle cx="50" cy="42" r="22" fill="#8d9285"/><path d="M8 120c0-34 20-48 42-48s42 14 42 48z" fill="#8d9285"/></svg>';
-const pc = x => x.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) + "%";
-const nf = x => x.toLocaleString("pt-BR");
+let ocupado = false;
 
-// ► REGRA DA APURAÇÃO
-// true  = regra do grupo: 50% exatos já elegem, desde que nenhum outro candidato consiga empatar.
-// false = regra oficial brasileira: precisa de MAIS de 50% dos votos válidos.
-const ACEITA_50 = true;
+// Som oficial da urna ao finalizar o voto (arquivo confirma-urna.mp3, na raiz do site)
+const som = new Audio("/confirma-urna.mp3"); som.preload = "auto";
+let somOk = false;
+function destravaSom(){
+  if(somOk) return; somOk = true;
+  som.muted = true;
+  const p = som.play();
+  if(p && p.then) p.then(()=>{ som.pause(); som.currentTime = 0; som.muted = false; }).catch(()=>{ som.muted = false; somOk = false; });
+}
+function tocaFim(){
+  try{
+    som.muted = false; som.currentTime = 0;
+    const p = som.play(); if(p && p.catch) p.catch(()=>tom(700,1.6));
+  }catch(e){ tom(700,1.6); }
+}
+["click","touchend","keydown"].forEach(ev => document.addEventListener(ev, destravaSom));
 
-function analisa(lista, validos, R){
-  const a = lista[0].v, b = lista[1].v, c = (lista[2] || {v:0}).v, den = validos + R;
-  const maxOutro = b + R;                               // o 2º colocado, se receber todos os que faltam
-  const passa = (A, D) => ACEITA_50 ? 2*A >= D : 2*A > D;
-  const r = {a:a, b:b, c:c, R:R, validos:validos, den:den, maxOutro:maxOutro,
-             pior: den ? a/den*100 : 0, melhor: den ? (a+R)/den*100 : 0};
-  r.garante = passa(a, den);                            // passo 1: pior caso do líder
-  r.alcancado = maxOutro >= a;                          // passo 2: algum outro consegue alcançá-lo?
-  r.podeGanhar = passa(a + R, den) && (!ACEITA_50 || R > 0 || b < a);   // passo 3: melhor caso do líder
-  if(validos === 0) r.estado = R === 0 ? "sem" : "aguardando";
-  else if(r.garante && !r.alcancado) r.estado = "eleito";
-  else if(!r.podeGanhar) r.estado = "turno2";
-  else {
-    r.estado = "andamento";
-    for(let g = 0; g <= R; g++){                        // quantos dos que faltam o líder precisa receber
-      if(passa(a + g, den) && b + (R - g) < a + g){ r.faltam = g; break; }
+let etapa = "aguarde", buf = "", pendente = false, branco = false, tituloAtual = "", nomeAtual = "", erro = "";
+
+async function api(rota, metodo, corpo, chave){
+  try{
+    const h = {"Content-Type":"application/json"}; if(chave) h["x-admin-key"] = chave;
+    const r = await fetch("/api/"+rota, {method:metodo, headers:h, body: corpo ? JSON.stringify(corpo) : undefined});
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return Object.assign({ok:r.ok, status:r.status}, j);
+  }catch(e){ return {ok:false, status:0, erro:"rede"}; }
+}
+
+let ac;
+function tom(freq, dur){
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = freq; o.type = "square"; g.gain.value = .08;
+    o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+  }catch(e){}
+}
+
+const silhueta = '<svg viewBox="0 0 100 120"><circle cx="50" cy="42" r="22" fill="#8d9285"/><path d="M8 120c0-34 20-48 42-48s42 14 42 48z" fill="#8d9285"/></svg>';
+
+function caixas(n, len){
+  let h = '<div class="caixas">';
+  for(let i=0;i<len;i++) h += '<div class="cx'+(i===buf.length?' on':'')+'">'+(buf[i]||"")+'</div>';
+  return h + '</div>';
+}
+
+function render(){
+  const t = document.getElementById("tela");
+  if(etapa === "aguarde"){ t.innerHTML = '<div class="tit">Identificação do eleitor</div><div class="big">Verificando título...</div>'; return; }
+  if(etapa === "titulo"){
+    t.innerHTML = '<div class="tit">Identificação do eleitor</div><div class="big">Título de eleitor</div>' +
+      caixas(0,4) + (erro ? '<div class="msg">'+erro+'</div>' : '') +
+      '<div class="rod">Digite os 4 dígitos do seu título<br>Tecle CONFIRMA para liberar o voto<br>CORRIGE para apagar</div>';
+  } else if(etapa === "voto"){
+    let h = '<div class="tit">Eleitor: '+nomeAtual+' · Seu voto para</div><div class="big">PRESIDENTE</div>';
+    if(branco){
+      h += '<div class="nulo">VOTO EM BRANCO</div>';
+    } else {
+      h += '<div style="font-size:13px">Número:</div>' + caixas(0,2);
+      if(buf.length === 2){
+        const c = CANDIDATOS[buf];
+        if(c){
+          const img = c.foto ? '<img class="foto" alt="'+c.nome+'" src="'+c.foto+'">' : '<div class="foto">'+silhueta+'</div>';
+          h += '<div class="cand">'+img+'<div class="info"><div>Nome:</div><div class="big">'+c.nome+'</div><div>Número: <b>'+buf+'</b></div><div>Partido: <b>'+c.partido+'</b></div></div></div>';
+        } else {
+          h += '<div class="nulo">NÚMERO ERRADO</div><div class="nulo">VOTO NULO</div>';
+        }
+      }
+    }
+    if(erro) h += '<div class="msg">'+erro+'</div>';
+    if(pendente) h += '<div class="alerta">Tecle CONFIRMA novamente para finalizar o voto</div>';
+    h += '<div class="rod">Aperte a tecla:<br>VERDE para CONFIRMAR este voto<br>LARANJA para CORRIGIR<br>É necessário confirmar duas vezes</div>';
+    t.innerHTML = h;
+  } else {
+    t.innerHTML = '<div class="fim">FIM</div><div class="rod" style="text-align:center">VOTOU</div>';
+  }
+}
+
+function digito(d){
+  if(etapa === "titulo"){ if(buf.length < 4){ buf += d; erro = ""; tom(900,.08);} }
+  else if(etapa === "voto"){ if(!branco && buf.length < 2){ buf += d; pendente = false; erro = ""; tom(900,.08);} }
+  render();
+}
+
+function corrige(){
+  if(etapa === "fim") return;
+  buf = ""; branco = false; pendente = false; erro = ""; tom(600,.1); render();
+}
+
+function brancoKey(){
+  if(etapa !== "voto" || buf.length > 0) return;
+  branco = true; pendente = false; tom(900,.08); render();
+}
+
+async function confirma(){
+  if(ocupado) return;
+  if(etapa === "titulo"){
+    if(buf.length < 4) return;
+    ocupado = true; erro = "VERIFICANDO..."; render();
+    const r = await api("titulo","POST",{titulo:buf});
+    ocupado = false;
+    if(r.ok){ tituloAtual = buf; nomeAtual = r.nome || ""; erro = ""; etapa = "voto"; tom(900,.1); }
+    else { erro = r.erro==="jaVotou" ? "ESTE TÍTULO JÁ VOTOU" : r.erro==="invalido" ? "TÍTULO INVÁLIDO" : r.erro==="fechado" ? "URNA FECHADA. "+r.mensagem : "ERRO DE CONEXÃO. TENTE DE NOVO"; tom(300,.4); }
+    buf = ""; render(); return;
+  }
+  if(etapa === "voto"){
+    if(!branco && buf.length < 2) return;
+    if(!pendente){ pendente = true; erro = ""; tom(900,.1); render(); return; }
+    ocupado = true; erro = "REGISTRANDO..."; render();
+    const r = await api("votar","POST",{titulo:tituloAtual, voto: branco ? "branco" : buf});
+    ocupado = false;
+    if(r.ok){
+      etapa = "fim"; buf = ""; branco = false; pendente = false; tituloAtual = ""; erro = "";
+      tocaFim(); render();
+      sessionStorage.removeItem("titulo");
+      setTimeout(()=>{ location.href = "/?votou=1"; }, Math.max(2500, (som.duration || 0) * 1000 + 500));
+    } else if(r.erro === "jaVotou"){
+      sessionStorage.removeItem("titulo"); location.replace("/?erro=jaVotou");
+    } else {
+      pendente = false; erro = r.erro==="fechado" ? "URNA FECHADA. "+r.mensagem : "ERRO DE CONEXÃO. CONFIRME DE NOVO"; tom(300,.4); render();
     }
   }
-  r.empate2 = R === 0 && b > 0 && b === c;
-  return r;
 }
 
-function veredito(an, lista){
-  const el = document.getElementById("veredito"), n1 = lista[0].nome, n2 = lista[1].nome, R = an.R;
-  const pl = (n, u, p) => n + " " + (n === 1 ? u : p);
-  let cls = "ver", t = "", sub = "";
-  if(an.estado === "eleito"){
-    cls += " ok"; t = "✔ " + n1 + " ELEITO NO 1º TURNO";
-    sub = "Tem " + nf(an.a) + " votos (" + pc(an.a/an.validos*100) + " dos votos válidos). ";
-    if(R === 0) sub += "Todos os eleitores votaram e ninguém o alcançou.";
-    else if(2*an.a > an.den) sub += "Mesmo que os " + R + " eleitores que faltam votem todos em outros candidatos, ele continua com mais de 50% dos votos válidos.";
-    else sub += "No pior caso ele fica com exatamente 50%, mas o 2º colocado chegaria a no máximo " + an.maxOutro + " votos, sem alcançá-lo.";
-  } else if(an.estado === "turno2"){
-    cls += " t2"; t = "⚠ 2º TURNO: " + n1 + " × " + n2;
-    sub = R > 0 ? "Nem se os " + R + " eleitores que faltam votarem todos no líder ele garante a vitória no 1º turno. Os finalistas podem mudar até o fim da votação."
-                : "Ninguém conseguiu a vitória no 1º turno. Finalistas definidos.";
-    if(an.empate2) sub = "Empate pelo 2º lugar: " + lista[1].nome + " e " + lista[2].nome + " têm o mesmo número de votos. Definir o desempate pelo critério combinado.";
-  } else if(an.estado === "andamento"){
-    t = "⏳ Apuração em andamento";
-    sub = "Ainda pode haver vencedor no 1º turno ou 2º turno. " + (an.faltam !== undefined
-      ? n1 + " precisa de mais " + pl(an.faltam, "voto", "votos") + " (restam " + pl(R, "eleitor", "eleitores") + " para votar) para ter a vitória garantida no 1º turno." : "");
-  } else if(an.estado === "sem"){
-    t = "Sem votos válidos"; sub = "Todos os votos foram brancos ou nulos. É preciso uma nova votação.";
-  } else { t = "Aguardando os primeiros votos"; }
-  el.className = cls; el.innerHTML = '<div class="vt">' + t + '</div>' + (sub ? '<div class="vs">' + sub + '</div>' : "");
-}
-
-function calculo(an, lista, total, votaram){
-  const sim = x => x ? "<b>sim</b>" : "<b>não</b>", lim = ACEITA_50 ? "50% ou mais" : "mais de 50%";
-  if(an.validos === 0){ document.getElementById("calc").innerHTML = "Ainda não há votos válidos para calcular."; return; }
-  document.getElementById("calc").innerHTML =
-    "Eleitores: <b>" + total + "</b> · já votaram: <b>" + votaram + "</b> · faltam: <b>" + an.R + "</b><br>" +
-    "Votos válidos (só candidatos): <b>" + an.validos + "</b>. Brancos e nulos não entram na conta.<br>" +
-    "Regra: " + (ACEITA_50 ? "é eleito no 1º turno quem garante <b>50% ou mais</b> dos votos válidos e não pode ser alcançado por nenhum outro candidato."
-                          : "é eleito no 1º turno quem passa de <b>50%</b> dos votos válidos.") +
-    '<div class="r">Líder: <b>' + lista[0].nome + "</b> com <b>" + an.a + "</b> votos.<br>" +
-    "<b>1)</b> Pior caso (todos os " + an.R + " que faltam votam em outros): " + an.a + " ÷ (" + an.validos + " + " + an.R + ") = <b>" + pc(an.pior) + "</b> → garante " + lim + "? " + sim(an.garante) + ".</div>" +
-    '<div class="r"><b>2)</b> 2º colocado (' + lista[1].nome + ") tem <b>" + an.b + "</b> votos. Se receber todos os " + an.R + " que faltam: " + an.b + " + " + an.R + " = <b>" + an.maxOutro + "</b> → alcança o líder (" + an.a + ")? " + sim(an.alcancado) + ".</div>" +
-    '<div class="r"><b>3)</b> Melhor caso do líder (todos os ' + an.R + " que faltam votam nele): (" + an.a + " + " + an.R + ") ÷ (" + an.validos + " + " + an.R + ") = <b>" + pc(an.melhor) + "</b> → ainda pode vencer no 1º turno? " + sim(an.podeGanhar) + ".</div>" +
-    '<div class="r">Conclusão: se o passo 1 é <b>sim</b> e o passo 2 é <b>não</b>, está <b>eleito</b>. Se o passo 3 é <b>não</b>, é <b>2º turno</b>. Fora disso, segue <b>em aberto</b>.</div>';
-}
-
-function desenha(d){
-  const v = d.votos || {};
-  const lista = CAND.map(c => Object.assign({v: v[c.n] || 0}, c));
-  const validos = lista.reduce((a,c) => a + c.v, 0);
-  lista.sort((a,b) => b.v - a.v);
-  const br = v.branco || 0, nu = v.nulo || 0, tot = validos + br + nu;
-  const ap = Math.min(100, d.votaram / TOTAL * 100);
-  const R = Math.max(0, TOTAL - d.votaram);
-  const an = analisa(lista, validos, R);
-  document.getElementById("up").textContent = "Última atualização " + new Date(d.em).toLocaleString("pt-BR") + " (horário local)";
-  document.getElementById("qt").textContent = nf(d.votaram) + " de " + TOTAL;
-  const pb = document.getElementById("pb"); pb.style.width = ap + "%"; pb.textContent = pc(ap);
-  document.getElementById("br").textContent = nf(br) + " (" + pc(tot ? br/tot*100 : 0) + ")";
-  document.getElementById("nu").textContent = nf(nu) + " (" + pc(tot ? nu/tot*100 : 0) + ")";
-  document.getElementById("to").textContent = nf(tot);
-  veredito(an, lista); calculo(an, lista, TOTAL, d.votaram);
-  document.getElementById("lista").innerHTML = lista.map((c,i) => {
-    const p = validos ? c.v / validos * 100 : 0;
-    const img = c.foto ? '<img alt="" src="'+c.foto+'">' : sil;
-    let badge = "";
-    if(an.estado === "eleito" && i === 0) badge = '<span class="b e">Eleito</span>';
-    else if(an.estado === "turno2" && i < 2) badge = '<span class="b">2º turno</span>';
-    else if(an.estado === "andamento" && i === 0) badge = '<span class="b">Na liderança</span>';
-    return '<div class="c"><div class="l"><div class="av"><svg class="r" viewBox="0 0 110 110"><circle cx="55" cy="55" r="51" fill="none" stroke="var(--track)" stroke-width="4"/><circle cx="55" cy="55" r="51" fill="none" stroke="#e6b800" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+(p*3.2044)+' 320.44"/></svg><div class="f">'+img+'</div></div>' +
-      '<div class="n"><div class="p">'+pc(p)+'</div><div class="v">'+nf(c.v)+' votos</div></div></div>' +
-      '<div class="s">'+c.partido+' – '+c.n+'</div><div class="nm">'+c.nome+'</div>'+badge+'</div>';
-  }).join("");
-}
-
-async function carrega(){
-  try{
-    const r = await fetch("/api/apuracao", {cache:"no-store"});
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    desenha(await r.json());
-    document.getElementById("er").textContent = "";
-  }catch(e){
-    document.getElementById("er").textContent = "Sem conexão com a apuração ("+(e && e.message || e)+"). Tentando de novo...";
-  }
-}
-document.getElementById("at").onclick = carrega;
-carrega(); setInterval(carrega, 5000);
+const grid = document.getElementById("grid");
+[1,2,3,4,5,6,7,8,9,0].forEach(n => {
+  const b = document.createElement("button");
+  b.className = "k" + (n === 0 ? " z" : ""); b.textContent = n; b.onclick = () => digito(String(n));
+  grid.appendChild(b);
+});
+document.querySelectorAll("[data-a]").forEach(b => b.onclick = () => ({branco:brancoKey, corrige:corrige, confirma:confirma})[b.dataset.a]());
+document.addEventListener("keydown", e => {
+  if(/^[0-9]$/.test(e.key)) digito(e.key);
+  else if(e.key === "Enter") confirma();
+  else if(e.key === "Backspace") corrige();
+});
+(async function(){
+  const t = sessionStorage.getItem("titulo");
+  if(!t){ location.replace("/"); return; }
+  render();
+  const r = await api("titulo","POST",{titulo:t});
+  if(r.ok){ tituloAtual = t; nomeAtual = r.nome || ""; etapa = "voto"; render(); }
+  else { sessionStorage.removeItem("titulo"); location.replace("/?erro=" + (r.erro || "rede")); }
+})();
 </script>
 </body>
 </html>
