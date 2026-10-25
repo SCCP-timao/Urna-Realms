@@ -3,557 +3,214 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f6f4ea">
-<title>Eleição presidencial</title>
+<title>Urna Eletrônica</title>
 <style>
-:root{color-scheme:light dark;--bg:#e9ebf0;--ink:#111;--card:#fff;--muted:#667;--verde:#1a7f37}
-@media (prefers-color-scheme:dark){:root{--bg:#14151a;--ink:#eee;--card:#22242c;--muted:#a0a4ae}}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+--bg:#e9e9e4;--body:#d8d8d2;--ink:#111;--muted:#555;--screen:#e8ecdf;--key:#2b2b2b;--keyt:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#16171a;--body:#2a2b30;--ink:#eee;--muted:#aaa}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#16171a;--body:#2a2b30;--ink:#eee;--muted:#aaa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
-/* a cena ocupa a tela toda (em computador, vira uma coluna alta no centro) */
-.stage{position:fixed;top:0;bottom:0;left:50%;width:min(100vw,calc(100vh*.5625));width:min(100vw,calc(100dvh*.5625));transform:translateX(-50%);background:#e6e9d2;overflow:hidden}
-.cena{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;transition:opacity .5s;pointer-events:none}
-.cena.on{opacity:1}
-.fala{position:absolute;z-index:3;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));background:var(--card);border-radius:16px;padding:9px 14px 12px;min-height:76px;box-shadow:0 6px 20px #0003}
-.quem{font-size:12px;font-weight:bold;color:var(--muted);margin:0 0 3px}
-.txt{font-size:17px;line-height:1.35;margin:0}
-.rodape{position:absolute;z-index:3;left:14px;right:14px;bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:8px}
-.go{border:0;border-radius:14px;padding:15px;font-size:17px;font-weight:bold;background:var(--verde);color:#fff;cursor:pointer;width:100%;box-shadow:0 4px 14px #0003;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.go:disabled{opacity:.6}
-.go.off{visibility:hidden}
-.go:focus-visible,.up:focus-visible,.b2:focus-visible{outline:3px solid #0071e3;outline-offset:2px}
-.b2{background:#ffffffb8;border:0;color:#445;font-size:12px;border-radius:999px;padding:5px 12px;cursor:pointer}
-/* o "upload" mora na mão estendida do mesário */
-.up{position:absolute;z-index:4;display:none;align-items:center;gap:7px;transform:translate(-50%,0) translateY(10px);background:#fffffff0;color:#1a4c8b;border:1.5px dashed var(--verde);border-radius:999px;padding:5px 12px 5px 6px;font:600 12.5px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap;animation:pulso 1.9s ease-in-out infinite;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.up.show{display:inline-flex}
-.up .mais{width:20px;height:20px;border-radius:50%;background:var(--verde);color:#fff;font-size:16px;line-height:20px;text-align:center;font-weight:bold}
-.up::after{content:"";position:absolute;left:50%;top:-7px;margin-left:-6px;border:6px solid transparent;border-top:0;border-bottom-color:#fffffff0}
-@keyframes pulso{0%,100%{box-shadow:0 0 0 0 #1a7f3766}50%{box-shadow:0 0 0 9px #1a7f3700}}
-@media (prefers-reduced-motion:reduce){.up{animation:none}}
-/* boletim de urna (senha do mesário) */
-#bu{display:none;position:absolute;z-index:6;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-height:75%;overflow:auto;background:var(--card);padding:14px;border-radius:14px;font-size:14px;line-height:1.6;box-shadow:0 6px 24px #0005}
-#bu .c{border:0;border-radius:10px;padding:12px;font-size:15px;font-weight:bold;background:#555;color:#fff;cursor:pointer;width:100%}
-#bu .c2{border:1px solid var(--muted);background:none;color:var(--ink);border-radius:10px;padding:10px;font-size:14px;cursor:pointer;width:100%;margin-top:8px}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.branco{position:fixed;left:0;top:0;right:0;bottom:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .9s;z-index:9}
-.branco.on{opacity:1}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{font-size:15px;margin:4px 0 10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.urna{display:flex;gap:12px;background:var(--body);padding:14px;border-radius:14px;width:100%;max-width:820px;box-shadow:0 6px 24px #0004}
+.tela{flex:1 1 60%;background:var(--screen);color:#111;border:4px solid #888;border-radius:6px;min-height:380px;padding:14px;position:relative;font-size:15px;display:flex;flex-direction:column}
+.teclado{flex:0 0 190px;display:flex;flex-direction:column;gap:8px}
+.logo{background:#111;color:#fff;text-align:center;font-size:12px;padding:6px;border-radius:4px;letter-spacing:.1em}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.k{background:var(--key);color:var(--keyt);border:0;border-radius:5px;font-size:20px;font-weight:bold;padding:12px 0;cursor:pointer;box-shadow:0 3px 0 #000;-webkit-tap-highlight-color:transparent}
+.k:active{transform:translateY(2px);box-shadow:0 1px 0 #000}
+.k.z{grid-column:2}
+.acoes{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.acoes .k{font-size:11px;padding:14px 0}
+.br{background:#fff;color:#111}.co{background:#ee7d1b;color:#111}.ok{background:#1faa3b;color:#fff;grid-column:1/3;font-size:14px!important;padding:18px 0!important}
+.tit{font-size:13px;color:#333;border-bottom:1px solid #999;padding-bottom:4px;margin-bottom:10px}
+.big{font-size:20px;font-weight:bold;margin:6px 0}
+.caixas{display:flex;gap:6px;margin:8px 0}
+.cx{width:38px;height:46px;border:2px solid #111;font-size:28px;font-weight:bold;display:flex;align-items:center;justify-content:center;background:#fff}
+.cx.on{outline:3px solid #1faa3b}
+.cand{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.foto{width:96px;height:126px;border:2px solid #111;background:#cfd3c6;object-fit:cover;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.foto svg{width:80%}
+.info div{margin:3px 0}
+.rod{margin-top:auto;border-top:1px solid #999;padding-top:6px;font-size:12px;color:#222;line-height:1.5}
+.alerta{background:#111;color:#fff;padding:6px 8px;margin-top:8px;font-weight:bold;font-size:13px;animation:pisca 1s steps(2) infinite}
+@keyframes pisca{50%{background:#a00}}
+.fim{margin:auto;text-align:center;font-size:84px;font-weight:bold;letter-spacing:.1em}
+.msg{color:#a00;font-weight:bold;margin-top:8px}
+.nulo{font-size:20px;font-weight:bold;margin-top:10px}
+@media (max-width:620px){.urna{flex-direction:column}.teclado{flex:none}.tela{min-height:340px}}
 </style>
 </head>
 <body>
-<div class="stage" id="stage">
-  <div id="cenas"></div>
-  <div class="fala"><p class="quem" id="quem"></p><p class="txt" id="txt" aria-hidden="true"></p></div>
-  <button class="up" id="upBtn" type="button" aria-label="Enviar o PNG do seu título"><span class="mais" aria-hidden="true">+</span>upload do seu título</button>
-  <div class="rodape">
-    <button class="go off" id="go" type="button"></button>
-    <button class="b2" id="bbu" type="button">Boletim de urna</button>
+<h1>Urna Eletrônica · Eleição Presidencial</h1>
+<div class="urna">
+  <div class="tela" id="tela"></div>
+  <div class="teclado">
+    <div class="logo">URNA ELETRÔNICA</div>
+    <div class="grid" id="grid"></div>
+    <div class="acoes">
+      <button class="k br" data-a="branco">BRANCO</button>
+      <button class="k co" data-a="corrige">CORRIGE</button>
+      <button class="k ok" data-a="confirma">CONFIRMA</button>
+    </div>
   </div>
-  <div id="bu"></div>
-  <input type="file" id="arq" accept="image/*" hidden>
 </div>
-<div class="sr" id="sr" role="status" aria-live="polite"></div>
-<div class="branco" id="branco"></div>
- 
-<script src="/cartao.js"></script>
+
 <script>
-const PELE = "#c08a5d", PELE_ESC = "#a8744d", CABELO = "#3a2616", AZUL = "#1a4c8b";
-const P = (x, y, w, h, c) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + c + '"/>';
- 
-/* ============ motor de animação (JavaScript puro, funciona em qualquer celular) ============ */
-const EST = new WeakMap();
-function est(el){ let s = EST.get(el); if(!s){ s = {x:0, y:0, r:0, s:1, o:1, px:0, py:0}; EST.set(el, s); } return s; }
-function aplica(el){
-  const s = est(el);
-  el.setAttribute("transform", "translate(" + s.x + " " + s.y + ") rotate(" + s.r + " " + s.px + " " + s.py + ") scale(" + s.s + ")");
-  el.setAttribute("opacity", s.o);
+// ► Para colocar as fotos: cole o endereço em data: ou use imagem embutida (base64) em "foto".
+const CANDIDATOS = {
+  "14": {nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
+  "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
+  "22": {nome:"Lorenzo Bonfa", partido:"PL", foto:""}
+};
+const TOTAL = 28;
+let ocupado = false;
+
+// Som oficial da urna ao finalizar o voto (arquivo confirma-urna.mp3, na raiz do site)
+const som = new Audio("/confirma-urna.mp3"); som.preload = "auto";
+let somOk = false;
+function destravaSom(){
+  if(somOk) return; somOk = true;
+  som.muted = true;
+  const p = som.play();
+  if(p && p.then) p.then(()=>{ som.pause(); som.currentTime = 0; som.muted = false; }).catch(()=>{ som.muted = false; somOk = false; });
 }
-function coloca(el, p){ Object.assign(est(el), p); aplica(el); }
-const suave = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-const mola = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
-// leva a peça até os valores de "p" em "ms" milissegundos
-function vai(el, p, ms, ease){
-  const s = est(el), ini = Object.assign({}, s), f = ease || suave;
-  return new Promise(res => {
-    let feito = false;
-    const fim = () => { if(!feito){ feito = true; coloca(el, p); res(); } };
-    if(ms <= 0) return fim();
-    const t0 = performance.now();
-    function passo(t){
-      if(feito) return;
-      const k = Math.min(1, Math.max(0, (t - t0) / ms)), e = f(k);
-      for(const c in p) s[c] = ini[c] + (p[c] - ini[c]) * e;
-      aplica(el);
-      if(k < 1) requestAnimationFrame(passo); else fim();
-    }
-    requestAnimationFrame(passo);
-    setTimeout(fim, ms + 300); // se a aba ficar em segundo plano, termina mesmo assim
-  });
+function tocaFim(){
+  try{
+    som.muted = false; som.currentTime = 0;
+    const p = som.play(); if(p && p.catch) p.catch(()=>tom(700,1.6));
+  }catch(e){ tom(700,1.6); }
 }
- 
-/* ============ cenas desenhadas (SVG). A tela é mais alta que larga: o desenho vai de y=-110 a y=670 ============ */
-function hall(fundo, id){
-  const L = (a, b, c, d) => '<line x1="' + a + '" y1="' + b + '" x2="' + c + '" y2="' + d + '"/>';
-  let chao = "";
-  for(let x = 0; x <= 400; x += 50){ const x1 = 200 + (x - 200) * .45; chao += L(x1, 300, x1 + (x - x1) * 380 / 260, 680); }
-  [312,326,344,368,402,450,520,600,660].forEach(y => { const xl = Math.max(0, 110 - 110 * (y - 300) / 260); chao += L(xl, y, 400 - xl, y); });
-  const luzes = [[170,48,60,12],[182,98,36,8],[190,132,20,5]].map(a => '<rect x="' + a[0] + '" y="' + a[1] + '" width="' + a[2] + '" height="' + a[3] + '" rx="2" fill="#fff"/>').join("");
-  const X = (m, x) => m ? 400 - x : x;
-  const quadro = m => '<polygon points="' + X(m,25) + ',177 ' + X(m,85) + ',199 ' + X(m,85) + ',255 ' + X(m,25) + ',293" fill="#f7f4e2" stroke="#b9b59a" stroke-width="1.5"/>' +
-    '<polygon points="' + X(m,30) + ',197 ' + X(m,80) + ',208 ' + X(m,80) + ',222 ' + X(m,30) + ',223" fill="#86b03a" opacity=".65"/>';
-  let fim = "";
-  if(fundo === "mesa"){
-    // mesário de blocos lá no fundo
-    fim = P(146,260,108,8,"#d7a874") + P(150,268,100,32,"#b98a5a") +
-      P(180,238,8,24,AZUL) + P(212,238,8,24,AZUL) + P(188,236,24,26,AZUL) +
-      P(192,220,16,16,PELE) + P(192,220,16,5,CABELO) + P(194,228,4,2,"#fff") + P(202,228,4,2,"#fff") + P(196,228,2,2,"#2a2a6a") + P(204,228,2,2,"#2a2a6a") +
-      '<line x1="182" y1="170" x2="182" y2="190" stroke="#8a8a80"/><line x1="218" y1="170" x2="218" y2="190" stroke="#8a8a80"/>' +
-      '<rect x="160" y="190" width="80" height="22" rx="3" fill="#86b03a"/><text x="200" y="205" text-anchor="middle" font-size="9" font-weight="bold" fill="#f6f3d6" font-family="Arial">MESÁRIO</text>';
-  } else {
-    // cabine branca vista por trás, como na foto: papelão branco com o nome escrito
-    fim = '<rect x="160" y="214" width="80" height="88" fill="#fbfbf8" stroke="#d6d6cf"/>' +
-      '<polygon points="240,214 252,222 252,302 240,302" fill="#e2e2db"/>' +
-      '<line x1="160" y1="258" x2="240" y2="258" stroke="#ececE6"/>' +
-      '<text x="200" y="236" text-anchor="middle" font-size="6.4" font-weight="bold" font-family="Georgia,serif" fill="#1d1d1f">CABINE DE</text>' +
-      '<text x="200" y="245" text-anchor="middle" font-size="6.4" font-weight="bold" font-family="Georgia,serif" fill="#1d1d1f">VOTAÇÃO</text>' +
-      '<text x="200" y="286" text-anchor="middle" font-size="3.6" font-family="Arial" fill="#777">VOTAÇÃO SIMULADA</text>';
-    [[336,12],[385,20],[455,32],[540,44]].forEach(a => { const y = a[0], w = a[1]; fim += '<path d="M200 ' + (y - w * .9) + ' L' + (200 + w) + ' ' + (y + w * .4) + ' L200 ' + (y + w * .05) + ' L' + (200 - w) + ' ' + (y + w * .4) + ' Z" fill="#86b03a" opacity=".75"/>'; });
-  }
-  return '<g id="' + id + '">' +
-    '<rect x="0" y="-120" width="400" height="800" fill="#f6f4ea"/>' +
-    luzes +
-    '<polygon points="0,0 110,170 110,300 0,560" fill="#dfe3c8"/><polygon points="400,0 290,170 290,300 400,560" fill="#d3d8b9"/>' +
-    quadro(0) + quadro(1) +
-    '<rect x="110" y="170" width="180" height="130" fill="#e6e9d2"/>' +
-    '<polygon points="110,300 290,300 400,560 0,560" fill="#cdc7b4"/><rect x="0" y="560" width="400" height="120" fill="#cdc7b4"/>' +
-    '<g stroke="#b3ad98" stroke-width="1.2" fill="none">' + chao + '</g>' +
-    fim + '</g>';
-}
- 
-function listaSvg(){
-  let linhas = "";
-  for(let i = 0; i < 7; i++){
-    if(i === 3) continue; // a linha do eleitor é desenhada à parte
-    const y0 = -55 + i * 17;
-    linhas += '<rect x="-58" y="' + (y0 + 6) + '" width="' + (46 + (i * 17) % 30) + '" height="3" fill="#c8c4a8"/><rect x="40" y="' + (y0 + 6) + '" width="16" height="3" fill="#c8c4a8"/>' +
-      '<line x1="-62" y1="' + (y0 + 17) + '" x2="62" y2="' + (y0 + 17) + '" stroke="#9a9680" stroke-width=".8" stroke-dasharray="3 2"/>';
-  }
-  return '<g id="lista">' +
-    '<rect x="-62" y="-75" width="124" height="150" rx="3" fill="#fffef8" stroke="#b9b59a" stroke-width="1.5"/>' +
-    '<rect x="-62" y="-75" width="124" height="18" rx="3" fill="#86b03a"/><text x="0" y="-63.5" text-anchor="middle" font-size="6.3" font-weight="bold" font-family="Arial" fill="#f6f3d6">LISTA DE ELEITORES · SEÇÃO 0001</text>' +
-    linhas +
-    '<rect x="-62" y="-4" width="124" height="17" fill="#e3e1cf"/>' +
-    '<g id="tira"><rect x="-62" y="-4" width="124" height="17" fill="#fffef8"/><rect id="achado" x="-62" y="-4" width="124" height="17" fill="#fff08a" opacity="0"/>' +
-    '<text id="tiraNome" x="-56" y="7.5" font-size="6.6" font-weight="bold" font-family="Arial" fill="#14210a"></text><text id="tiraNum" x="56" y="7.5" text-anchor="end" font-size="6.6" font-family="Arial" fill="#14210a"></text>' +
-    '<line x1="-62" y1="13" x2="62" y2="13" stroke="#9a9680" stroke-width=".8" stroke-dasharray="3 2"/></g>' +
-    '</g>';
-}
- 
-function cenaMesa(){
-  // camisa com textura de pixels
-  let textura = "";
-  [[168,210,"#1f559b"],[216,226,"#174476"],[184,258,"#1f559b"],[208,274,"#174476"],[176,290,"#1f559b"],[224,262,"#1f559b"],[192,306,"#174476"]].forEach(a => { textura += P(a[0], a[1], 8, 8, a[2]); });
-  return P(0,-110,400,490,"#e6e9d2") + P(0,380,400,290,"#cdc7b4") +
-    '<g stroke="#b3ad98" stroke-width="1.2"><line x1="0" y1="430" x2="400" y2="430"/><line x1="0" y1="490" x2="400" y2="490"/><line x1="0" y1="570" x2="400" y2="570"/><line x1="200" y1="380" x2="200" y2="670"/><line x1="100" y1="380" x2="30" y2="670"/><line x1="300" y1="380" x2="370" y2="670"/></g>' +
-    '<rect x="115" y="34" width="170" height="44" rx="6" fill="#86b03a"/><text x="200" y="62" text-anchor="middle" font-size="22" font-weight="bold" fill="#f6f3d6" font-family="Arial">SEÇÃO 0001</text>' +
-    '<circle cx="62" cy="112" r="26" fill="#fff" stroke="#555" stroke-width="3"/><path d="M62 112V94M62 112L74 119" stroke="#333" stroke-width="3" stroke-linecap="round"/>' +
-    '<rect x="302" y="76" width="74" height="96" fill="#f7f4e2" stroke="#b9b59a" stroke-width="1.5"/><rect x="310" y="86" width="58" height="12" fill="#86b03a" opacity=".7"/><rect x="310" y="106" width="58" height="6" fill="#c8c4a8"/><rect x="310" y="118" width="48" height="6" fill="#c8c4a8"/><rect x="310" y="130" width="54" height="6" fill="#c8c4a8"/>' +
-    /* ---- mesário de blocos ---- */
-    '<g shape-rendering="crispEdges">' +
-      P(168,202,64,120,AZUL) + textura +
-      P(192,202,16,8,PELE_ESC) + P(196,210,8,8,PELE_ESC) +                       // gola
-      P(184,202,6,44,"#86b03a") + P(210,202,6,44,"#86b03a") +                    // cordão
-      '<rect x="182" y="246" width="36" height="30" fill="#fff" stroke="#8a8a80" stroke-width="1.5"/>' + P(186,251,12,12,PELE) + P(186,251,12,4,CABELO) + P(201,252,13,3,"#555") + P(201,258,13,3,"#999") +
-      '<text x="200" y="272" text-anchor="middle" font-size="5.5" font-weight="bold" font-family="Arial" fill="#1a4c8b">MESÁRIO</text>' +
-      P(232,202,32,98,AZUL) + P(232,300,32,22,PELE) +                            // braço direito (na mesa)
-      '<g id="bracoRepouso">' + P(136,202,32,98,AZUL) + P(136,300,32,22,PELE) + '</g>' +
-      '<g id="cabeca">' +
-        P(168,138,64,64,PELE) + P(168,138,64,16,CABELO) + P(168,154,16,8,CABELO) + P(216,154,16,8,CABELO) +
-        P(176,164,16,4,CABELO) + P(208,164,16,4,CABELO) +
-        P(176,170,16,8,"#fff") + P(208,170,16,8,"#fff") +
-        '<g id="pupilas">' + P(184,170,8,8,"#2a2a6a") + P(208,170,8,8,"#2a2a6a") + '</g>' +
-        '<rect class="lid" x="176" y="170" width="16" height="0" fill="' + PELE + '"/><rect class="lid" x="208" y="170" width="16" height="0" fill="' + PELE + '"/>' +
-        P(192,178,16,8,PELE_ESC) +
-        '<g id="b-neutro">' + P(188,190,24,4,"#5a3420") + '</g>' +
-        '<g id="b-aberta" style="display:none">' + P(190,186,20,12,"#4a1f1a") + '</g>' +
-        '<g id="b-sorriso" style="display:none">' + P(184,186,8,6,"#5a3420") + P(208,186,8,6,"#5a3420") + P(192,192,16,6,"#5a3420") + '</g>' +
-        '<g id="b-triste" style="display:none">' + P(192,186,16,6,"#5a3420") + P(184,192,8,6,"#5a3420") + P(208,192,8,6,"#5a3420") + '</g>' +
-      '</g>' +
-    '</g>' +
-    /* ---- mesa ---- */
-    '<rect x="270" y="266" width="86" height="54" rx="3" fill="#c9ccd1" stroke="#8f939a" stroke-width="2"/><rect x="280" y="278" width="12" height="3" fill="#8f939a"/>' +
-    '<rect x="40" y="318" width="320" height="24" rx="4" fill="#d7a874"/><rect x="52" y="342" width="296" height="130" fill="#b98a5a"/>' +
-    '<rect x="150" y="376" width="100" height="46" rx="3" fill="#fff" stroke="#c8c4a8"/><text x="200" y="397" text-anchor="middle" font-size="14" font-weight="bold" font-family="Arial" fill="#1a4c8b">MESÁRIO</text><text x="200" y="414" text-anchor="middle" font-size="10" font-family="Arial" fill="#555">Entregue o título aqui</text>' +
-    '<rect x="62" y="472" width="22" height="98" fill="#a67a4e"/><rect x="316" y="472" width="22" height="98" fill="#a67a4e"/>' +
-    /* ---- mão estendida: é aqui que o título é entregue ---- */
-    '<g id="bracoEsticado" shape-rendering="crispEdges">' + P(136,202,32,56,"#2f6db5") + P(108,250,60,42,"#2f6db5") + P(108,250,60,3,"#13396b") + P(108,284,60,8,"#13396b") +
-      P(84,290,80,34,PELE) + P(92,296,64,20,"#cf9b6d") + P(100,316,3,8,PELE_ESC) + P(116,316,3,8,PELE_ESC) + P(132,316,3,8,PELE_ESC) + P(160,296,14,18,PELE) + '</g>' +
-    '<rect id="alvoUp" x="84" y="290" width="90" height="34" fill="none" pointer-events="none"/>' +
-    /* ---- lista de papelzinhos, tesoura e a senha cortada ---- */
-    listaSvg() +
-    '<g id="senha"><rect x="-62" y="-8.5" width="124" height="17" fill="#fffef8" stroke="#9a9680" stroke-width=".8"/><rect x="-62" y="-8.5" width="124" height="17" fill="#fff08a" opacity=".55"/>' +
-      '<text id="senhaNome" x="-56" y="2.5" font-size="6.6" font-weight="bold" font-family="Arial" fill="#14210a"></text><text id="senhaNum" x="56" y="2.5" text-anchor="end" font-size="6.6" font-family="Arial" fill="#14210a"></text></g>' +
-    '<g id="tesoura"><g id="lamA"><path d="M0 -3L-34 0L0 3Z" fill="#c4c9d0" stroke="#7d838b" stroke-width="1"/><circle cx="8" cy="-6" r="5.5" fill="none" stroke="#c0392b" stroke-width="3"/></g>' +
-      '<g id="lamB"><path d="M0 -3L-34 0L0 3Z" fill="#c4c9d0" stroke="#7d838b" stroke-width="1"/><circle cx="8" cy="6" r="5.5" fill="none" stroke="#c0392b" stroke-width="3"/></g></g>' +
-    /* ---- título do eleitor + a mão de quem entrega ---- */
-    '<g id="cartao">' +
-      '<rect x="-45" y="-28" width="90" height="56" rx="5" fill="#d6e8bd" stroke="#86b03a" stroke-width="2"/>' +
-      '<rect x="-45" y="-28" width="90" height="12" rx="4" fill="#86b03a"/><text x="0" y="-19" text-anchor="middle" font-size="6.5" font-weight="bold" font-family="Arial" fill="#f6f3d6">TÍTULO ELEITORAL</text>' +
-      '<rect x="-39" y="-10" width="78" height="9" rx="2" fill="#fff" opacity=".75"/><rect x="-39" y="3" width="34" height="9" rx="2" fill="#fff" opacity=".75"/><rect x="-1" y="3" width="20" height="9" rx="2" fill="#fff" opacity=".75"/>' +
-      '<rect x="22" y="6" width="17" height="17" fill="#111"/><rect x="25" y="9" width="4" height="4" fill="#fff"/><rect x="32" y="13" width="4" height="4" fill="#fff"/><rect x="26" y="17" width="4" height="3" fill="#fff"/>' +
-      '<svg id="cartaoImg" x="-45" y="-28" width="90" height="56" viewBox="0 0 900 560" preserveAspectRatio="none" style="display:none"><image id="cartaoFoto" x="0" y="0" width="900" height="1160" preserveAspectRatio="none"/></svg>' +
-      '<rect x="-45" y="-28" width="90" height="56" rx="5" fill="none" stroke="#86b03a" stroke-width="2"/>' +
-      '<rect id="scan" x="-45" y="-2" width="90" height="4" fill="#34c759"/>' +
-      '<g id="maosM" shape-rendering="crispEdges">' + P(-52,6,12,18,PELE) + P(40,6,12,18,PELE) + '</g>' +
-      '<g id="mao" shape-rendering="crispEdges">' + P(-34,70,68,46,"#6b7c93") + P(-24,14,48,62,PELE) + P(-34,6,14,30,PELE_ESC) + '</g>' +
-      '<g id="carimbo"><circle r="21" fill="#34c759"/><path d="M-10 0L-3 8L11 -8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>' +
-    '</g>';
-}
- 
-// por dentro da cabine: papelão branco, mesinha e a urna
-function cenaCabine(){
-  const urna = '<g transform="translate(0 10)"><rect x="128" y="246" width="144" height="86" rx="8" fill="#cfcfc9" stroke="#9a9a92" stroke-width="2"/><rect x="140" y="257" width="76" height="48" fill="#e5eadb" stroke="#555"/><rect x="148" y="266" width="34" height="5" fill="#333"/><rect x="148" y="276" width="52" height="4" fill="#888"/><rect x="148" y="284" width="44" height="4" fill="#888"/>' +
-    [0,1,2].map(r => [0,1,2].map(c => '<rect x="' + (224 + c * 13) + '" y="' + (257 + r * 12) + '" width="10" height="9" rx="1.5" fill="#2b2b2d"/>').join("")).join("") +
-    '<rect x="224" y="294" width="36" height="9" rx="2" fill="#34c759"/></g>';
-  return '<g id="gD">' +
-    P(0,-110,400,530,"#e6e9d2") + P(0,420,400,250,"#cdc7b4") +
-    '<g stroke="#b3ad98" stroke-width="1.2"><line x1="0" y1="480" x2="400" y2="480"/><line x1="0" y1="570" x2="400" y2="570"/><line x1="200" y1="420" x2="200" y2="670"/><line x1="90" y1="420" x2="10" y2="670"/><line x1="310" y1="420" x2="390" y2="670"/></g>' +
-    '<polygon points="24,40 70,70 70,420 24,470" fill="#efefe9"/><polygon points="376,40 330,70 330,420 376,470" fill="#e2e2db"/>' +
-    '<rect x="70" y="70" width="260" height="350" fill="#fbfbf8"/>' +
-    '<path d="M70 70H330M24 40L70 70M376 40L330 70M70 245H330" stroke="#dcdcd5" stroke-width="2" fill="none"/>' +
-    '<rect x="96" y="342" width="208" height="14" rx="3" fill="#d7a874"/><rect x="108" y="356" width="12" height="64" fill="#a67a4e"/><rect x="280" y="356" width="12" height="64" fill="#a67a4e"/>' +
-    urna + '</g>';
-}
- 
-/* ============ lógica do circuito ============ */
-const $ = id => document.getElementById(id);
-const RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-const dorme = ms => new Promise(r => setTimeout(r, ms));
-const NOMES_CENA = {A:"Sala de votação, com a mesa do mesário ao fundo", B:"Mesa do mesário", C:"Corredor até a cabine de votação", D:"Dentro da cabine de votação"};
-let token = null, nomeEleitor = "", ocupado = false;
- 
+["click","touchend","keydown"].forEach(ev => document.addEventListener(ev, destravaSom));
+
+let etapa = "aguarde", buf = "", pendente = false, branco = false, tituloAtual = "", nomeAtual = "", erro = "";
+
 async function api(rota, metodo, corpo, chave){
   try{
     const h = {"Content-Type":"application/json"}; if(chave) h["x-admin-key"] = chave;
-    const r = await fetch("/api/" + rota, {method:metodo, headers:h, body: corpo ? JSON.stringify(corpo) : undefined});
+    const r = await fetch("/api/"+rota, {method:metodo, headers:h, body: corpo ? JSON.stringify(corpo) : undefined});
     let j = {}; try{ j = await r.json(); }catch(e){}
     return Object.assign({ok:r.ok, status:r.status}, j);
   }catch(e){ return {ok:false, status:0, erro:"rede"}; }
 }
- 
-// sons discretos (passos, carimbo, tesoura)
+
 let ac;
-function bate(freq, dur, vol){
+function tom(freq, dur){
   try{
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
-    o.type = "sine"; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, freq / 2), t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur);
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.value = freq; o.type = "square"; g.gain.value = .08;
+    o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
   }catch(e){}
 }
- 
-function bonito(n){
-  const peq = ["da","de","do","das","dos","e"];
-  return String(n || "").toLowerCase().split(" ").map((p, i) => (i && peq.includes(p)) ? p : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+
+const silhueta = '<svg viewBox="0 0 100 120"><circle cx="50" cy="42" r="22" fill="#8d9285"/><path d="M8 120c0-34 20-48 42-48s42 14 42 48z" fill="#8d9285"/></svg>';
+
+function caixas(n, len){
+  let h = '<div class="caixas">';
+  for(let i=0;i<len;i++) h += '<div class="cx'+(i===buf.length?' on':'')+'">'+(buf[i]||"")+'</div>';
+  return h + '</div>';
 }
- 
-function cena(k){
-  ["A","B","C","D"].forEach(x => $("c" + x).classList.toggle("on", x === k));
-  $("stage").setAttribute("aria-label", NOMES_CENA[k]);
-}
- 
-// mesário: boca, olhos, cabeça, braços
-let humor = "neutro";
-function boca(e){ ["neutro","aberta","sorriso","triste"].forEach(n => { const el = $("b-" + n); if(el) el.style.display = n === e ? "" : "none"; }); }
-function olhar(baixo){ return vai($("pupilas"), {y: baixo ? 3 : 0}, 250); }
-async function acena(){ const c = $("cabeca"); await vai(c, {r:5}, 220); await vai(c, {r:-1}, 260); await vai(c, {r:0}, 220); }
-function piscar(){
-  const l = document.querySelectorAll(".lid"); l.forEach(e => e.setAttribute("height", 8));
-  setTimeout(() => l.forEach(e => e.setAttribute("height", 0)), 130);
-}
-function bracoEstendido(sim){ vai($("bracoEsticado"), {o: sim ? 1 : 0}, 250); vai($("bracoRepouso"), {o: sim ? 0 : 1}, 250); }
- 
-// fala com efeito de digitação
-let falaId = 0;
-async function fala(quem, texto, comBoca){
-  const id = ++falaId, el = $("txt");
-  $("quem").textContent = quem; $("sr").textContent = quem + ": " + texto;
-  if(RM){ el.textContent = texto; return; }
-  el.textContent = "";
-  let aberta = false;
-  const iv = comBoca ? setInterval(() => { aberta = !aberta; boca(aberta ? "aberta" : humor); }, 130) : null;
-  for(let i = 1; i <= texto.length; i++){
-    if(id !== falaId) break;
-    el.textContent = texto.slice(0, i);
-    await dorme(i % 2 ? 18 : 26);
-  }
-  if(id === falaId) el.textContent = texto;
-  if(iv){ clearInterval(iv); boca(humor); }
-}
- 
-function botao(txt, fn){
-  const b = $("go");
-  b.textContent = txt; b.classList.remove("off"); b.disabled = false;
-  b.onclick = () => { if(b.disabled) return; b.disabled = true; b.classList.add("off"); fn(); };
-}
-function esconde(){ $("go").classList.add("off"); $("go").disabled = true; }
- 
-// o selinho "+ upload do seu título" fica sobre a palma da mão estendida do mesário
-function posUp(){
-  const a = $("alvoUp").getBoundingClientRect(), s = $("stage").getBoundingClientRect(), b = $("upBtn");
-  b.style.left = (a.left - s.left + a.width / 2) + "px";
-  b.style.top = (a.bottom - s.top) + "px";
-}
-function mostraUpload(v){ if(v) posUp(); $("upBtn").classList.toggle("show", !!v); }
- 
-// "andar": aproxima a câmera do fundo da cena, com balanço de passos
-function andar(gId, ms, fim, ox, oy){
-  ox = ox === undefined ? 200 : ox; oy = oy === undefined ? 255 : oy;
-  if(RM) return dorme(600); // movimento reduzido: sem zoom, só espera a troca suave de cena
-  return new Promise(res => {
-    let feito = false;
-    const acabou = () => { if(!feito){ feito = true; res(); } };
-    const g = $(gId), t0 = performance.now(); let proximo = 0;
-    function f(t){
-      if(feito) return;
-      const k = Math.min(1, Math.max(0, (t - t0) / ms)), e = suave(k);
-      const s = 1 + (fim - 1) * e, balanco = Math.sin((t - t0) / 1000 * Math.PI * 2 * 2.3) * 3.5 * Math.min(1, s);
-      g.setAttribute("transform", "translate(0 " + balanco.toFixed(2) + ") translate(" + ox + " " + oy + ") scale(" + s.toFixed(4) + ") translate(" + (-ox) + " " + (-oy) + ")");
-      if(t - t0 >= proximo && k < .95){ bate(95, .14, .09); proximo += 435; }
-      if(k < 1) requestAnimationFrame(f); else acabou();
+
+function render(){
+  const t = document.getElementById("tela");
+  if(etapa === "aguarde"){ t.innerHTML = '<div class="tit">Identificação do eleitor</div><div class="big">Verificando título...</div>'; return; }
+  if(etapa === "titulo"){
+    t.innerHTML = '<div class="tit">Identificação do eleitor</div><div class="big">Título de eleitor</div>' +
+      caixas(0,4) + (erro ? '<div class="msg">'+erro+'</div>' : '') +
+      '<div class="rod">Digite os 4 dígitos do seu título<br>Tecle CONFIRMA para liberar o voto<br>CORRIGE para apagar</div>';
+  } else if(etapa === "voto"){
+    let h = '<div class="tit">Eleitor: '+nomeAtual+' · Seu voto para</div><div class="big">PRESIDENTE</div>';
+    if(branco){
+      h += '<div class="nulo">VOTO EM BRANCO</div>';
+    } else {
+      h += '<div style="font-size:13px">Número:</div>' + caixas(0,2);
+      if(buf.length === 2){
+        const c = CANDIDATOS[buf];
+        if(c){
+          const img = c.foto ? '<img class="foto" alt="'+c.nome+'" src="'+c.foto+'">' : '<div class="foto">'+silhueta+'</div>';
+          h += '<div class="cand">'+img+'<div class="info"><div>Nome:</div><div class="big">'+c.nome+'</div><div>Número: <b>'+buf+'</b></div><div>Partido: <b>'+c.partido+'</b></div></div></div>';
+        } else {
+          h += '<div class="nulo">NÚMERO ERRADO</div><div class="nulo">VOTO NULO</div>';
+        }
+      }
     }
-    requestAnimationFrame(f);
-    setTimeout(acabou, ms + 400);
-  });
-}
- 
-// luz verde que passa sobre o título enquanto o mesário confere
-let scanAtivo = false;
-async function escanear(ligar){
-  const sc = $("scan");
-  if(!ligar){ scanAtivo = false; coloca(sc, {o:0}); return; }
-  if(scanAtivo) return;
-  scanAtivo = true; coloca(sc, {o:.9, y:-26});
-  while(scanAtivo){ await vai(sc, {y:26}, 450); if(!scanAtivo) break; await vai(sc, {y:-26}, 450); }
-}
- 
-function posicoesIniciais(){
-  coloca($("cartao"), {x:200, y:615, r:-5, s:1.25, o:1});
-  coloca($("mao"), {y:0, o:1});
-  coloca($("maosM"), {o:0});
-  coloca($("carimbo"), {s:0, o:0});
-  coloca($("scan"), {y:-26, o:0});
-  coloca($("cabeca"), {px:200, py:202, r:0});
-  coloca($("pupilas"), {y:0});
-  coloca($("bracoEsticado"), {o:1}); coloca($("bracoRepouso"), {o:0});
-  coloca($("lista"), {x:296, y:298, s:.5, r:-6, o:1});
-  coloca($("senha"), {x:200, y:337.6, s:1.7, r:0, o:0});
-  coloca($("tesoura"), {x:320, y:352, s:1.3, o:0});
-  coloca($("lamA"), {r:-8}); coloca($("lamB"), {r:8});
-  $("tira").setAttribute("opacity", 1); $("achado").setAttribute("opacity", 0);
-}
- 
-/* ---- roteiro ---- */
-async function inicio(){
-  cena("A"); boca("neutro");
-  // avisos que chegam da urna ou do mesário
-  const p = new URLSearchParams(location.search);
-  let msg = "Você chegou à seção de votação. A mesa do mesário fica ao fundo da sala.";
-  if(p.get("votou")) msg = "Voto registrado! Obrigado por votar. Próximo eleitor, pode entrar na sala.";
-  else if(p.get("erro") === "jaVotou") msg = "Este título já votou. Se for outro eleitor, pode entrar na sala.";
-  else if(p.get("erro") === "invalido") msg = "Título inválido. Use o PNG original, inteiro e sem cortar.";
-  else if(p.get("erro")) msg = "Não foi possível continuar. Verifique a conexão e tente de novo.";
-  if(location.search) history.replaceState(null, "", "/");
-  await fala("Seção 0001", msg);
-  botao("Entrar na sala", andarAteMesa);
-}
- 
-async function andarAteMesa(){
-  await fala("Seção 0001", "Vamos até a mesa do mesário.");
-  await andar("gA", 2600, 2.3);
-  cena("B");
-  await dorme(500);
-  acena();
-  await fala("Mesário", "Bom dia! Pode entregar o seu título, por favor. É só tocar na minha mão.", true);
-  mostraUpload(true);
-}
- 
-// o eleitor escolheu o arquivo: lê o selo de segurança do PNG
-function lerArquivo(f){
-  if(ocupado) return;
-  ocupado = true; mostraUpload(false);
-  const url = URL.createObjectURL(f), img = new Image();
-  img.onload = () => {
-    let t = null; try{ t = lerToken(img); }catch(e){}
-    if(!t){ URL.revokeObjectURL(url); ocupado = false; recusa("Hmm, não consegui ler este título. Pode me entregar o PNG original, inteiro e sem cortar?"); return; }
-    token = t;
-    $("cartaoFoto").setAttribute("href", url); $("cartaoImg").style.display = "";
-    ocupado = false; entregar();
-  };
-  img.onerror = () => { URL.revokeObjectURL(url); ocupado = false; recusa("Este arquivo não parece uma imagem. Entregue o PNG do seu título, por favor."); };
-  img.src = url;
-}
-async function recusa(msg){
-  humor = "triste"; boca("triste");
-  await fala("Mesário", msg, true);
-  humor = "neutro"; boca("neutro");
-  mostraUpload(true);
-}
- 
-async function entregar(){
-  posicoesIniciais(); humor = "neutro"; boca("neutro"); mostraUpload(false);
-  const chamada = api("titulo", "POST", {titulo: token});
-  const card = $("cartao");
-  await vai(card, {x:126, y:304, r:-2, s:.8}, 900);          // o título pousa na palma da mão do mesário
-  await vai($("mao"), {y:60, o:0}, 380);
-  olhar(true);
-  fala("Mesário", "Só um instante, vou conferir o seu título…", true);
-  bracoEstendido(false); coloca($("maosM"), {o:1});
-  await vai(card, {x:200, y:284, r:0, s:.86}, 700);          // ele traz o título para perto dos olhos
-  acena();
-  escanear(true);
-  const resultado = await Promise.all([chamada, dorme(2200)]);
-  const r = resultado[0];
-  escanear(false);
- 
-  if(r.ok){
-    nomeEleitor = r.nome || "";
-    try{ sessionStorage.setItem("titulo", token); }catch(e){}
-    humor = "sorriso"; boca("sorriso");
-    await vai($("carimbo"), {s:1, o:1}, 380, mola); bate(140, .18, .2); acena();
-    await dorme(500);
-    coloca($("maosM"), {o:0});
-    vai(card, {x:200, y:615, r:-5, s:1.25, o:0}, 750); olhar(false);
-    await fala("Mesário", "Tudo certo, " + (bonito(nomeEleitor).split(" ")[0] || "eleitor") + "! Seu título foi conferido.", true);
-    await dorme(250);
-    await cortaSenha();
-    await fala("Mesário", "Aqui está a sua senha. Guarde com você e siga até a cabine de votação.", true);
-    botao("Ir à cabine", andarAteCabine);
-    return;
-  }
- 
-  humor = "triste"; boca("triste"); olhar(false); coloca($("maosM"), {o:0});
-  vai(card, {x:200, y:615, r:-5, s:1.25, o:0}, 750);
-  if(r.erro === "jaVotou"){
-    await fala("Mesário", "Este título já votou. Não posso liberar a cabine.", true);
-    botao("Voltar ao início", () => location.replace("/?erro=jaVotou"));
-  } else if(r.erro === "invalido"){
-    try{ sessionStorage.removeItem("titulo"); }catch(e){}
-    await fala("Mesário", "Não consegui validar este título.", true);
-    botao("Voltar ao início", () => location.replace("/?erro=invalido"));
+    if(erro) h += '<div class="msg">'+erro+'</div>';
+    if(pendente) h += '<div class="alerta">Tecle CONFIRMA novamente para finalizar o voto</div>';
+    h += '<div class="rod">Aperte a tecla:<br>VERDE para CONFIRMAR este voto<br>LARANJA para CORRIGIR<br>É necessário confirmar duas vezes</div>';
+    t.innerHTML = h;
   } else {
-    await fala("Mesário", "O sistema ficou fora do ar por um instante. Vamos tentar de novo?", true);
-    botao("Entregar de novo", async () => { await dorme(300); entregar(); });
+    t.innerHTML = '<div class="fim">FIM</div><div class="rod" style="text-align:center">VOTOU</div>';
   }
 }
- 
-// a tesoura corre pela linha pontilhada
-function corta(){
-  return new Promise(res => {
-    let feito = false, ultimo = -1;
-    const acabou = () => { if(!feito){ feito = true; res(); } };
-    const D = RM ? 500 : 1000, t0 = performance.now(), x0 = 312, x1 = 92;
-    function f(t){
-      if(feito) return;
-      const k = Math.min(1, Math.max(0, (t - t0) / D)), abre = Math.abs(Math.sin(k * Math.PI * 9)) * 14;
-      coloca($("tesoura"), {x: x0 + (x1 - x0) * k});
-      coloca($("lamA"), {r: -abre}); coloca($("lamB"), {r: abre});
-      const n = Math.floor(k * 9); if(n !== ultimo){ ultimo = n; bate(1500, .03, .05); }
-      if(k < 1) requestAnimationFrame(f); else acabou();
+
+function digito(d){
+  if(etapa === "titulo"){ if(buf.length < 4){ buf += d; erro = ""; tom(900,.08);} }
+  else if(etapa === "voto"){ if(!branco && buf.length < 2){ buf += d; pendente = false; erro = ""; tom(900,.08);} }
+  render();
+}
+
+function corrige(){
+  if(etapa === "fim") return;
+  buf = ""; branco = false; pendente = false; erro = ""; tom(600,.1); render();
+}
+
+function brancoKey(){
+  if(etapa !== "voto" || buf.length > 0) return;
+  branco = true; pendente = false; tom(900,.08); render();
+}
+
+async function confirma(){
+  if(ocupado) return;
+  if(etapa === "titulo"){
+    if(buf.length < 4) return;
+    ocupado = true; erro = "VERIFICANDO..."; render();
+    const r = await api("titulo","POST",{titulo:buf});
+    ocupado = false;
+    if(r.ok){ tituloAtual = buf; nomeAtual = r.nome || ""; erro = ""; etapa = "voto"; tom(900,.1); }
+    else { erro = r.erro==="jaVotou" ? "ESTE TÍTULO JÁ VOTOU" : r.erro==="invalido" ? "TÍTULO INVÁLIDO" : r.erro==="fechado" ? "URNA FECHADA. "+r.mensagem : "ERRO DE CONEXÃO. TENTE DE NOVO"; tom(300,.4); }
+    buf = ""; render(); return;
+  }
+  if(etapa === "voto"){
+    if(!branco && buf.length < 2) return;
+    if(!pendente){ pendente = true; erro = ""; tom(900,.1); render(); return; }
+    ocupado = true; erro = "REGISTRANDO..."; render();
+    const r = await api("votar","POST",{titulo:tituloAtual, voto: branco ? "branco" : buf});
+    ocupado = false;
+    if(r.ok){
+      etapa = "fim"; buf = ""; branco = false; pendente = false; tituloAtual = ""; erro = "";
+      tocaFim(); render();
+      sessionStorage.removeItem("titulo");
+      setTimeout(()=>{ location.href = "/?votou=1"; }, Math.max(2500, (som.duration || 0) * 1000 + 500));
+    } else if(r.erro === "jaVotou"){
+      sessionStorage.removeItem("titulo"); location.replace("/?erro=jaVotou");
+    } else {
+      pendente = false; erro = r.erro==="fechado" ? "URNA FECHADA. "+r.mensagem : "ERRO DE CONEXÃO. CONFIRME DE NOVO"; tom(300,.4); render();
     }
-    requestAnimationFrame(f);
-    setTimeout(acabou, D + 400);
-  });
-}
- 
-async function cortaSenha(){
-  const nome = bonito(nomeEleitor), num = token.split("-")[0];
-  const tam = Math.min(6.6, 6.6 * 24 / Math.max(24, nome.length)) + "px";
-  ["tiraNome","senhaNome"].forEach(id => { $(id).textContent = nome; $(id).setAttribute("font-size", tam); });
-  ["tiraNum","senhaNum"].forEach(id => { $(id).textContent = "Nº " + num; });
-  fala("Mesário", "Agora vou cortar a sua senha na lista.", true);
-  await vai($("lista"), {x:200, y:330, s:1.7, r:0}, 850);
-  $("achado").setAttribute("opacity", .9);
-  await dorme(700);
-  coloca($("tesoura"), {x:312, y:352, o:1});
-  await dorme(200);
-  await corta();
-  $("tira").setAttribute("opacity", 0);
-  coloca($("senha"), {x:200, y:337.6, s:1.7, r:0, o:1});
-  vai($("tesoura"), {o:0}, 250);
-  await dorme(250);
-  vai($("lista"), {x:296, y:298, s:.5, r:-6}, 800);
-  await vai($("senha"), {x:200, y:520, r:-3, s:1.15}, 850);
-  bate(300, .08, .08);
-}
- 
-async function andarAteCabine(){
-  cena("C");
-  await dorme(550);
-  fala("Seção 0001", "Siga em frente até a cabine de votação.");
-  await andar("gC", 3000, 4.2);
-  cena("D");
-  await dorme(700);
-  const nome = bonito(nomeEleitor).split(" ")[0] || "eleitor";
-  await fala("Cabine", "Entre, " + nome + ". Seu voto é secreto.");
-  botao("Votar", votar);
-}
- 
-async function votar(){
-  fala("Cabine", "Boa votação!");
-  const p = andar("gD", 1500, 1.9, 200, 300);
-  await dorme(900);
-  $("branco").classList.add("on");
-  await p;
-  await dorme(300);
-  location.href = "/urna.html";
-}
- 
-/* ---- boletim de urna (senha do mesário) ---- */
-const TOTAL = 28;
-let chaveAdm = "";
-async function atualizaBU(){
-  const b = $("bu");
-  if(!chaveAdm){ chaveAdm = prompt("Senha do mesário:") || ""; if(!chaveAdm){ b.style.display = "none"; return; } }
-  b.style.display = "block"; b.textContent = "Carregando...";
-  const r = await api("resultados", "GET", null, chaveAdm);
-  if(!r.ok){
-    b.innerHTML = "<b>" + (r.status === 401 ? "Senha incorreta." : "Não foi possível carregar o boletim.") + '</b><button id="fechaBu" class="c2" type="button">Fechar</button>';
-    $("fechaBu").onclick = () => { $("bu").style.display = "none"; };
-    chaveAdm = ""; return;
   }
-  const v = r.votos || {}, nomes = {"14":"14 – Rodrigo Miyamura e Silva (Missão)","50":"50 – Miguel Lucas Arruda (PCL)","22":"22 – Lorenzo Bonfa (PL)"};
-  let h = "<b>Boletim de urna – Presidente</b><br>";
-  ["14","50","22"].forEach(k => h += nomes[k] + ": " + (v[k] || 0) + "<br>");
-  h += "Brancos: " + (v.branco || 0) + "<br>Nulos: " + (v.nulo || 0) + "<br>Votaram: " + r.votaram + " de " + TOTAL + "<br><br>" +
-       '<button id="zera" class="c" type="button">Zerar urna</button><button id="fechaBu" class="c2" type="button">Fechar</button>';
-  b.innerHTML = h;
-  $("zera").onclick = async () => {
-    if(confirm("Zerar todos os votos e liberar os títulos?")){ await api("zerar", "POST", {}, chaveAdm); atualizaBU(); }
-  };
-  $("fechaBu").onclick = () => { $("bu").style.display = "none"; };
 }
- 
-function iniciar(){
-  const VB = '<svg class="cena" id="c@" viewBox="0 -110 400 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">';
-  $("cenas").innerHTML =
-    VB.replace("@", "A") + hall("mesa", "gA") + '</svg>' +
-    VB.replace("@", "B") + cenaMesa() + '</svg>' +
-    VB.replace("@", "C") + hall("cabine", "gC") + '</svg>' +
-    VB.replace("@", "D") + cenaCabine() + '</svg>';
-  posicoesIniciais();
-  setInterval(piscar, 4200);
-  window.addEventListener("resize", () => { if($("upBtn").classList.contains("show")) posUp(); });
-  $("upBtn").onclick = () => $("arq").click();
-  $("arq").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) lerArquivo(f); };
-  $("bbu").onclick = () => { if($("bu").style.display === "block" && chaveAdm) $("bu").style.display = "none"; else atualizaBU(); };
-  // começa sempre do zero: ninguém chega à cabine sem passar pelo mesário
-  try{ sessionStorage.removeItem("titulo"); }catch(e){}
-  inicio();
-}
-iniciar();
+
+const grid = document.getElementById("grid");
+[1,2,3,4,5,6,7,8,9,0].forEach(n => {
+  const b = document.createElement("button");
+  b.className = "k" + (n === 0 ? " z" : ""); b.textContent = n; b.onclick = () => digito(String(n));
+  grid.appendChild(b);
+});
+document.querySelectorAll("[data-a]").forEach(b => b.onclick = () => ({branco:brancoKey, corrige:corrige, confirma:confirma})[b.dataset.a]());
+document.addEventListener("keydown", e => {
+  if(/^[0-9]$/.test(e.key)) digito(e.key);
+  else if(e.key === "Enter") confirma();
+  else if(e.key === "Backspace") corrige();
+});
+(async function(){
+  const t = sessionStorage.getItem("titulo");
+  if(!t){ location.replace("/"); return; }
+  render();
+  const r = await api("titulo","POST",{titulo:t});
+  if(r.ok){ tituloAtual = t; nomeAtual = r.nome || ""; etapa = "voto"; render(); }
+  else { sessionStorage.removeItem("titulo"); location.replace("/?erro=" + (r.erro || "rede")); }
+})();
 </script>
 </body>
 </html>
- 
