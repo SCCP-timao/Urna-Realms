@@ -104,7 +104,7 @@ function frente(c, nome, num){
   campo(x, "Nº INSCRIÇÃO", num, 262, 214, 330, 64, 28);
   campo(x, "ZONA", "001", 604, 214, 120, 64, 26);
   campo(x, "SEÇÃO", "0001", 736, 214, 124, 64, 26);
-  campo(x, "MUNICÍPIO / UF", "SIMULAÇÃO / BR", 40, 288, 540, 64, 26);
+  campo(x, "MUNICÍPIO / UF", " SÃO PAULO / BR", 40, 288, 540, 64, 26);
   campo(x, "DATA DE EMISSÃO", EMISSAO, 592, 288, 268, 64, 26);
 
   // assinatura do juiz (rabisco) e linha
@@ -116,7 +116,7 @@ function frente(c, nome, num){
   x.stroke(); x.restore();
   x.strokeStyle = VERDE_TXT; x.lineWidth = 1.5; x.beginPath(); x.moveTo(250, 456); x.lineTo(650, 456); x.stroke();
   x.textAlign = "center"; x.fillStyle = VERDE_TXT; x.font = "bold 13px Arial";
-  x.fillText("JUIZ(A) ELEITORAL · SIMULAÇÃO", 450, 476);
+  x.fillText("JUIZ(A) ELEITORAL · ELEITOR APTO", 450, 476);
   x.font = "13px Arial"; x.fillText("Documento fictício para uso exclusivo nesta votação · sem validade oficial", 450, 520);
   x.textAlign = "left";
 }
