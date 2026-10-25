@@ -16,6 +16,7 @@ h1{font-size:20px;margin:8px 0 14px;text-align:center}
 .slot{border:3px dashed var(--muted);border-radius:16px;padding:26px 16px;text-align:center;background:var(--card)}
 .slot .p{font-size:54px;line-height:1;color:var(--bt);font-weight:bold}
 .slot .t{font-size:18px;font-weight:bold;margin:8px 0 16px}
+input{width:100%;font-size:34px;letter-spacing:.4em;text-align:center;padding:10px;border:2px solid var(--muted);border-radius:10px;background:var(--bg);color:var(--ink)}
 button{border:0;border-radius:10px;padding:14px;font-size:16px;font-weight:bold;cursor:pointer;background:var(--bt);color:#fff;width:100%;margin-top:12px}
 button.v{background:#1faa3b}button.c{background:#555}
 button.l{background:none;color:var(--muted);text-decoration:underline;font-weight:normal;font-size:14px}
@@ -120,7 +121,7 @@ function lerArquivo(f){
 $("bad").onclick = () => $("arq").click();
 $("arq").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) lerArquivo(f); };
 $("flip").onclick = () => $("flip").classList.toggle("v");
-$("ir").onclick = () => { try{ sessionStorage.setItem("titulo", atual.token); }catch(e){} location.href = "/urna.html"; };
+$("ir").onclick = () => { try{ sessionStorage.setItem("titulo", atual.token); }catch(e){} location.href = "/sala.html"; };
 $("tr").onclick = () => {
   try{ localStorage.removeItem(KEY); }catch(e){}
   atual = null; $("cartao").style.display = "none"; $("add").style.display = "block"; aviso("");
