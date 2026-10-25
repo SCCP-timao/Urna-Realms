@@ -57,11 +57,11 @@ h1{font-size:18px;margin:0}
 </div>
 <div class="sr" id="sr" role="status" aria-live="polite"></div>
 <div class="branco" id="branco"></div>
-
+ 
 <script src="/cartao.js"></script>
 <script>
 const PELE = "#d9a67a";
-
+ 
 /* ============ motor de animação (JavaScript puro, funciona em qualquer celular) ============ */
 const EST = new WeakMap();
 function est(el){ let s = EST.get(el); if(!s){ s = {x:0, y:0, r:0, s:1, o:1, px:0, py:0}; EST.set(el, s); } return s; }
@@ -92,7 +92,7 @@ function vai(el, p, ms, ease){
     setTimeout(fim, ms + 300); // se a aba ficar em segundo plano, termina mesmo assim
   });
 }
-
+ 
 /* ============ cenas desenhadas (SVG) ============ */
 function hall(fundo, id){
   let chao = "";
@@ -129,7 +129,7 @@ function hall(fundo, id){
     '<g stroke="#b3ad98" stroke-width="1.2" fill="none">' + chao + '</g>' +
     fim + '</g>';
 }
-
+ 
 function listaSvg(){
   let linhas = "";
   for(let i = 0; i < 7; i++){
@@ -148,7 +148,7 @@ function listaSvg(){
     '<line x1="-62" y1="13" x2="62" y2="13" stroke="#9a9680" stroke-width=".8" stroke-dasharray="3 2"/></g>' +
     '</g>';
 }
-
+ 
 function cenaMesa(){
   return '<rect width="400" height="560" fill="#e6e9d2"/><rect y="380" width="400" height="180" fill="#cdc7b4"/>' +
     '<g stroke="#b3ad98" stroke-width="1.2"><line x1="0" y1="430" x2="400" y2="430"/><line x1="0" y1="490" x2="400" y2="490"/><line x1="200" y1="380" x2="200" y2="560"/><line x1="100" y1="380" x2="40" y2="560"/><line x1="300" y1="380" x2="360" y2="560"/></g>' +
@@ -203,7 +203,7 @@ function cenaMesa(){
       '<g id="carimbo"><circle r="21" fill="#34c759"/><path d="M-10 0L-3 8L11 -8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>' +
     '</g>';
 }
-
+ 
 // por dentro da cabine: papelão branco, mesinha e a urna
 function cenaCabine(){
   const urna = '<g transform="translate(0 10)"><rect x="128" y="246" width="144" height="86" rx="8" fill="#cfcfc9" stroke="#9a9a92" stroke-width="2"/><rect x="140" y="257" width="76" height="48" fill="#e5eadb" stroke="#555"/><rect x="148" y="266" width="34" height="5" fill="#333"/><rect x="148" y="276" width="52" height="4" fill="#888"/><rect x="148" y="284" width="44" height="4" fill="#888"/>' +
@@ -218,7 +218,7 @@ function cenaCabine(){
     '<rect x="96" y="342" width="208" height="14" rx="3" fill="#d7a874"/><rect x="108" y="356" width="12" height="64" fill="#a67a4e"/><rect x="280" y="356" width="12" height="64" fill="#a67a4e"/>' +
     urna + '</g>';
 }
-
+ 
 /* ============ lógica do circuito ============ */
 const $ = id => document.getElementById(id);
 const RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -226,8 +226,321 @@ const dorme = ms => new Promise(r => setTimeout(r, ms));
 const NOMES_CENA = {A:"Sala de votação, com a mesa do mesário ao fundo", B:"Mesa do mesário", C:"Corredor até a cabine de votação", D:"Dentro da cabine de votação"};
 const ETAPAS = ["Sala","Mesa do mesário","Cabine","Urna"];
 let token = null, nomeEleitor = "", ocupado = false;
-
+ 
 async function api(rota, metodo, corpo, chave){
   try{
     const h = {"Content-Type":"application/json"}; if(chave) h["x-admin-key"] = chave;
-    const r = await fetch("/api/" + rota, {method:metodo, headers:h, body: corpo ? JSON.stringi
+    const r = await fetch("/api/" + rota, {method:metodo, headers:h, body: corpo ? JSON.stringify(corpo) : undefined});
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return Object.assign({ok:r.ok, status:r.status}, j);
+  }catch(e){ return {ok:false, status:0, erro:"rede"}; }
+}
+ 
+// sons discretos (passos, carimbo, tesoura)
+let ac;
+function bate(freq, dur, vol){
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.type = "sine"; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, freq / 2), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur);
+  }catch(e){}
+}
+ 
+function bonito(n){
+  const peq = ["da","de","do","das","dos","e"];
+  return String(n || "").toLowerCase().split(" ").map((p, i) => (i && peq.includes(p)) ? p : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+ 
+function cena(k){
+  ["A","B","C","D"].forEach(x => $("c" + x).classList.toggle("on", x === k));
+  $("stage").setAttribute("aria-label", NOMES_CENA[k]);
+}
+function passo(i){
+  [...$("passos").children].forEach((li, n) => li.classList.toggle("on", n <= i));
+  $("etapa").textContent = "Etapa " + (i + 1) + " de 4 · " + ETAPAS[i];
+}
+ 
+// mesário: boca, olhos, cabeça
+let humor = "neutro";
+function boca(e){ ["neutro","aberta","sorriso","triste"].forEach(n => { const el = $("b-" + n); if(el) el.style.display = n === e ? "" : "none"; }); }
+function olhar(baixo){ return vai($("pupilas"), {y: baixo ? 3 : 0}, 250); }
+async function acena(){ const c = $("cabeca"); await vai(c, {r:5}, 220); await vai(c, {r:-1}, 260); await vai(c, {r:0}, 220); }
+function piscar(){
+  const l = document.querySelectorAll(".lid"); l.forEach(e => e.setAttribute("height", 12));
+  setTimeout(() => l.forEach(e => e.setAttribute("height", 0)), 130);
+}
+ 
+// fala com efeito de digitação
+let falaId = 0;
+async function fala(quem, texto, comBoca){
+  const id = ++falaId, el = $("txt");
+  $("quem").textContent = quem; $("sr").textContent = quem + ": " + texto;
+  if(RM){ el.textContent = texto; return; }
+  el.textContent = "";
+  let aberta = false;
+  const iv = comBoca ? setInterval(() => { aberta = !aberta; boca(aberta ? "aberta" : humor); }, 130) : null;
+  for(let i = 1; i <= texto.length; i++){
+    if(id !== falaId) break;
+    el.textContent = texto.slice(0, i);
+    await dorme(i % 2 ? 18 : 26);
+  }
+  if(id === falaId) el.textContent = texto;
+  if(iv){ clearInterval(iv); boca(humor); }
+}
+ 
+function botao(txt, fn){
+  const b = $("go");
+  b.textContent = txt; b.classList.remove("off"); b.disabled = false;
+  b.onclick = () => { if(b.disabled) return; b.disabled = true; b.classList.add("off"); fn(); };
+}
+// o botão que abre a escolha do arquivo precisa continuar ativo (o eleitor pode cancelar e tentar de novo)
+function botaoArquivo(txt){
+  const b = $("go");
+  b.textContent = txt; b.classList.remove("off"); b.disabled = false;
+  b.onclick = () => $("arq").click();
+}
+function esconde(){ $("go").classList.add("off"); $("go").disabled = true; }
+ 
+// "andar": aproxima a câmera do fundo da cena, com balanço de passos
+function andar(gId, ms, fim, ox, oy){
+  ox = ox === undefined ? 200 : ox; oy = oy === undefined ? 255 : oy;
+  if(RM) return dorme(600); // movimento reduzido: sem zoom, só espera a troca suave de cena
+  return new Promise(res => {
+    let feito = false;
+    const acabou = () => { if(!feito){ feito = true; res(); } };
+    const g = $(gId), t0 = performance.now(); let proximo = 0;
+    function f(t){
+      if(feito) return;
+      const k = Math.min(1, Math.max(0, (t - t0) / ms)), e = suave(k);
+      const s = 1 + (fim - 1) * e, balanco = Math.sin((t - t0) / 1000 * Math.PI * 2 * 2.3) * 3.5 * Math.min(1, s);
+      g.setAttribute("transform", "translate(0 " + balanco.toFixed(2) + ") translate(" + ox + " " + oy + ") scale(" + s.toFixed(4) + ") translate(" + (-ox) + " " + (-oy) + ")");
+      if(t - t0 >= proximo && k < .95){ bate(95, .14, .09); proximo += 435; }
+      if(k < 1) requestAnimationFrame(f); else acabou();
+    }
+    requestAnimationFrame(f);
+    setTimeout(acabou, ms + 400);
+  });
+}
+ 
+// luz verde que passa sobre o título enquanto o mesário confere
+let scanAtivo = false;
+async function escanear(ligar){
+  const sc = $("scan");
+  if(!ligar){ scanAtivo = false; coloca(sc, {o:0}); return; }
+  if(scanAtivo) return;
+  scanAtivo = true; coloca(sc, {o:.9, y:-26});
+  while(scanAtivo){ await vai(sc, {y:26}, 450); if(!scanAtivo) break; await vai(sc, {y:-26}, 450); }
+}
+ 
+function posicoesIniciais(){
+  coloca($("cartao"), {x:200, y:548, r:-5, s:1.25, o:1});
+  coloca($("mao"), {y:0, o:1});
+  coloca($("carimbo"), {s:0, o:0});
+  coloca($("scan"), {y:-26, o:0});
+  coloca($("cabeca"), {px:200, py:215, r:0});
+  coloca($("pupilas"), {y:0});
+  coloca($("lista"), {x:316, y:300, s:.5, r:-6, o:1});
+  coloca($("senha"), {x:200, y:337.6, s:1.7, r:0, o:0});
+  coloca($("tesoura"), {x:320, y:352, s:1.3, o:0});
+  coloca($("lamA"), {r:-8}); coloca($("lamB"), {r:8});
+  $("tira").setAttribute("opacity", 1); $("achado").setAttribute("opacity", 0);
+}
+ 
+/* ---- roteiro ---- */
+async function inicio(){
+  cena("A"); passo(0); boca("neutro");
+  // avisos que chegam da urna ou do mesário (antes ficavam na carteira)
+  const p = new URLSearchParams(location.search);
+  let msg = "Você chegou à seção de votação. A mesa do mesário fica ao fundo da sala.";
+  if(p.get("votou")) msg = "Voto registrado! Obrigado por votar. Próximo eleitor, pode entrar na sala.";
+  else if(p.get("erro") === "jaVotou") msg = "Este título já votou. Se for outro eleitor, pode entrar na sala.";
+  else if(p.get("erro") === "invalido") msg = "Título inválido. Use o PNG original, inteiro e sem cortar.";
+  else if(p.get("erro")) msg = "Não foi possível continuar. Verifique a conexão e tente de novo.";
+  if(location.search) history.replaceState(null, "", "/");
+  await fala("Seção 0001", msg);
+  botao("Entrar na sala", andarAteMesa);
+}
+ 
+async function andarAteMesa(){
+  await fala("Seção 0001", "Vamos até a mesa do mesário.");
+  await andar("gA", 2600, 2.3);
+  cena("B"); passo(1);
+  await dorme(500);
+  acena();
+  await fala("Mesário", "Bom dia! Pode entregar o seu título, por favor.", true);
+  botaoArquivo("Escolher o PNG do meu título");
+}
+ 
+// o eleitor escolheu o arquivo: lê o selo de segurança do PNG
+function lerArquivo(f){
+  if(ocupado) return;
+  ocupado = true; esconde();
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => {
+    let t = null; try{ t = lerToken(img); }catch(e){}
+    if(!t){ URL.revokeObjectURL(url); ocupado = false; recusa("Hmm, não consegui ler este título. Pode me entregar o PNG original, inteiro e sem cortar?"); return; }
+    token = t;
+    $("cartaoFoto").setAttribute("href", url); $("cartaoImg").style.display = "";
+    ocupado = false; entregar();
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); ocupado = false; recusa("Este arquivo não parece uma imagem. Entregue o PNG do seu título, por favor."); };
+  img.src = url;
+}
+async function recusa(msg){
+  humor = "triste"; boca("triste");
+  await fala("Mesário", msg, true);
+  botaoArquivo("Escolher outro arquivo");
+}
+ 
+async function entregar(){
+  posicoesIniciais(); humor = "neutro"; boca("neutro"); $("pular").hidden = true;
+  const chamada = api("titulo", "POST", {titulo: token});
+  const card = $("cartao");
+  await vai(card, {x:200, y:356, r:-3, s:1}, 750);
+  await vai($("mao"), {y:60, o:0}, 380);
+  await vai(card, {x:200, y:318, r:0, s:.78}, 420);
+  olhar(true); acena();
+  fala("Mesário", "Só um instante, vou conferir o seu título…", true);
+  await dorme(500);
+  await vai(card, {x:200, y:284, s:.86}, 650);
+  escanear(true);
+  const resultado = await Promise.all([chamada, dorme(2200)]);
+  const r = resultado[0];
+  escanear(false);
+ 
+  if(r.ok){
+    nomeEleitor = r.nome || "";
+    try{ sessionStorage.setItem("titulo", token); }catch(e){}
+    $("pular").hidden = false;
+    humor = "sorriso"; boca("sorriso");
+    await vai($("carimbo"), {s:1, o:1}, 380, mola); bate(140, .18, .2); acena();
+    await dorme(500);
+    vai(card, {x:200, y:548, r:-5, s:1.25, o:0}, 750); olhar(false);
+    await fala("Mesário", "Tudo certo, " + (bonito(nomeEleitor).split(" ")[0] || "eleitor") + "! Seu título foi conferido.", true);
+    await dorme(250);
+    await cortaSenha();
+    await fala("Mesário", "Aqui está a sua senha. Guarde com você e siga até a cabine de votação.", true);
+    botao("Ir à cabine", andarAteCabine);
+    return;
+  }
+ 
+  humor = "triste"; boca("triste"); olhar(false);
+  vai(card, {x:200, y:548, r:-5, s:1.25, o:0}, 750);
+  if(r.erro === "jaVotou"){
+    await fala("Mesário", "Este título já votou. Não posso liberar a cabine.", true);
+    botao("Voltar ao início", () => location.replace("/?erro=jaVotou"));
+  } else if(r.erro === "invalido"){
+    try{ sessionStorage.removeItem("titulo"); }catch(e){}
+    await fala("Mesário", "Não consegui validar este título.", true);
+    botao("Voltar ao início", () => location.replace("/?erro=invalido"));
+  } else {
+    await fala("Mesário", "O sistema ficou fora do ar por um instante. Vamos tentar de novo?", true);
+    botao("Entregar de novo", async () => { await dorme(300); entregar(); });
+  }
+}
+ 
+// a tesoura corre pela linha pontilhada
+function corta(){
+  return new Promise(res => {
+    let feito = false, ultimo = -1;
+    const acabou = () => { if(!feito){ feito = true; res(); } };
+    const D = RM ? 500 : 1000, t0 = performance.now(), x0 = 312, x1 = 92;
+    function f(t){
+      if(feito) return;
+      const k = Math.min(1, Math.max(0, (t - t0) / D)), abre = Math.abs(Math.sin(k * Math.PI * 9)) * 14;
+      coloca($("tesoura"), {x: x0 + (x1 - x0) * k});
+      coloca($("lamA"), {r: -abre}); coloca($("lamB"), {r: abre});
+      const n = Math.floor(k * 9); if(n !== ultimo){ ultimo = n; bate(1500, .03, .05); }
+      if(k < 1) requestAnimationFrame(f); else acabou();
+    }
+    requestAnimationFrame(f);
+    setTimeout(acabou, D + 400);
+  });
+}
+ 
+async function cortaSenha(){
+  const nome = bonito(nomeEleitor), num = token.split("-")[0];
+  const tam = Math.min(6.6, 6.6 * 24 / Math.max(24, nome.length)) + "px";
+  ["tiraNome","senhaNome"].forEach(id => { $(id).textContent = nome; $(id).setAttribute("font-size", tam); });
+  ["tiraNum","senhaNum"].forEach(id => { $(id).textContent = "Nº " + num; });
+  fala("Mesário", "Agora vou cortar a sua senha na lista.", true);
+  await vai($("lista"), {x:200, y:330, s:1.7, r:0}, 850);
+  $("achado").setAttribute("opacity", .9);
+  await dorme(700);
+  coloca($("tesoura"), {x:312, y:352, o:1});
+  await dorme(200);
+  await corta();
+  $("tira").setAttribute("opacity", 0);
+  coloca($("senha"), {x:200, y:337.6, s:1.7, r:0, o:1});
+  vai($("tesoura"), {o:0}, 250);
+  await dorme(250);
+  vai($("lista"), {x:316, y:300, s:.5, r:-6}, 800);
+  await vai($("senha"), {x:200, y:505, r:-3, s:1.15}, 850);
+  bate(300, .08, .08);
+}
+ 
+async function andarAteCabine(){
+  cena("C"); passo(2);
+  await dorme(550);
+  fala("Seção 0001", "Siga em frente até a cabine de votação.");
+  await andar("gC", 3000, 4.2);
+  cena("D");
+  await dorme(700);
+  const nome = bonito(nomeEleitor).split(" ")[0] || "eleitor";
+  await fala("Cabine", "Entre, " + nome + ". Seu voto é secreto.");
+  botao("Votar", votar);
+}
+ 
+async function votar(){
+  passo(3);
+  fala("Cabine", "Boa votação!");
+  const p = andar("gD", 1500, 1.9, 200, 300);
+  await dorme(900);
+  $("branco").classList.add("on");
+  await p;
+  await dorme(300);
+  location.href = "/urna.html";
+}
+ 
+/* ---- boletim de urna (senha do mesário) ---- */
+const TOTAL = 28;
+let chaveAdm = "";
+async function atualizaBU(){
+  const b = $("bu");
+  if(!chaveAdm){ chaveAdm = prompt("Senha do mesário:") || ""; if(!chaveAdm){ b.style.display = "none"; return; } }
+  b.style.display = "block"; b.textContent = "Carregando...";
+  const r = await api("resultados", "GET", null, chaveAdm);
+  if(!r.ok){ b.textContent = r.status === 401 ? "Senha incorreta." : "Não foi possível carregar o boletim."; chaveAdm = ""; return; }
+  const v = r.votos || {}, nomes = {"14":"14 – Rodrigo Miyamura e Silva (Missão)","50":"50 – Miguel Lucas Arruda (PCL)","22":"22 – Lorenzo Bonfa (PL)"};
+  let h = "<b>Boletim de urna – Presidente</b><br>";
+  ["14","50","22"].forEach(k => h += nomes[k] + ": " + (v[k] || 0) + "<br>");
+  h += "Brancos: " + (v.branco || 0) + "<br>Nulos: " + (v.nulo || 0) + "<br>Votaram: " + r.votaram + " de " + TOTAL + "<br><br>" +
+       '<button id="zera" class="c" type="button">Zerar urna</button>';
+  b.innerHTML = h;
+  $("zera").onclick = async () => {
+    if(confirm("Zerar todos os votos e liberar os títulos?")){ await api("zerar", "POST", {}, chaveAdm); atualizaBU(); }
+  };
+}
+ 
+function iniciar(){
+  $("stage").innerHTML =
+    '<svg class="cena" id="cA" viewBox="0 0 400 560" aria-hidden="true">' + hall("mesa", "gA") + '</svg>' +
+    '<svg class="cena" id="cB" viewBox="0 0 400 560" aria-hidden="true">' + cenaMesa() + '</svg>' +
+    '<svg class="cena" id="cC" viewBox="0 0 400 560" aria-hidden="true">' + hall("cabine", "gC") + '</svg>' +
+    '<svg class="cena" id="cD" viewBox="0 0 400 560" aria-hidden="true">' + cenaCabine() + '</svg>';
+  posicoesIniciais();
+  setInterval(piscar, 4200);
+  $("arq").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) lerArquivo(f); };
+  $("pular").onclick = () => { location.href = "/urna.html"; };
+  $("bbu").onclick = () => { if($("bu").style.display === "block" && chaveAdm) $("bu").style.display = "none"; else atualizaBU(); };
+  // começa sempre do zero: ninguém chega à cabine sem passar pelo mesário
+  try{ sessionStorage.removeItem("titulo"); }catch(e){}
+  inicio();
+}
+iniciar();
+</script>
+</body>
+</html>
+ 
