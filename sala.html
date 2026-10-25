@@ -14,12 +14,13 @@ body{margin:0;min-height:100vh;min-height:100dvh;background:var(--bg);color:var(
 .topo{display:flex;justify-content:space-between;align-items:center}
 h1{font-size:18px;margin:0}
 .pular{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:14px;padding:10px 4px;cursor:pointer}
+.pular[hidden]{display:none}
 .passos{display:flex;gap:6px;list-style:none;margin:0;padding:0}
 .passos li{flex:1;height:5px;border-radius:9px;background:var(--seg);transition:background .4s}
 .passos li.on{background:var(--verde)}
 .etapa{font-size:13px;color:var(--muted);margin:-4px 0 0}
 .stage{position:relative;width:min(100%,calc(58vh*.714));width:min(100%,calc(58dvh*.714));aspect-ratio:400/560;margin:0 auto;border-radius:18px;overflow:hidden;background:#e6e9d2;box-shadow:0 4px 18px #0003}
-.cena{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .5s;pointer-events:none}
+.cena{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;transition:opacity .5s;pointer-events:none}
 .cena.on{opacity:1}
 .fala{background:var(--card);border-radius:14px;padding:12px 14px;min-height:104px}
 .quem{font-size:12px;font-weight:bold;color:var(--muted);margin:0 0 4px}
@@ -29,25 +30,15 @@ h1{font-size:18px;margin:0}
 .go.off{visibility:hidden}
 .go:focus-visible,.pular:focus-visible{outline:3px solid #0071e3;outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.branco{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .9s;z-index:9}
+.branco{position:fixed;left:0;top:0;right:0;bottom:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .9s;z-index:9}
 .branco.on{opacity:1}
-
-/* peças animadas dentro das cenas */
-.mv{transition:transform var(--d,.6s) cubic-bezier(.3,.7,.3,1),opacity var(--d,.6s) ease}
-.cabeca{transform-box:view-box;transform-origin:200px 215px}
-.lid{transform-box:fill-box;transform-origin:center top;animation:pisca 5s infinite}
-@keyframes pisca{0%,95%,100%{transform:scaleY(0)}97%{transform:scaleY(1)}}
-.scan{opacity:0}
-.scan.on{opacity:.9;animation:varre .9s ease-in-out infinite alternate}
-@keyframes varre{from{transform:translateY(-26px)}to{transform:translateY(26px)}}
-@media (prefers-reduced-motion:reduce){.mv,.cena,.branco,.passos li{transition:none}.lid,.scan.on{animation:none}}
 </style>
 </head>
 <body>
 <div class="w">
   <div class="topo">
-    <h1>Seção 0001 · Votação simulada</h1>
-    <button class="pular" id="pular" type="button">Pular</button>
+    <h1>Seção 0001 · Simulação</h1>
+    <button class="pular" id="pular" type="button" hidden>Pular</button>
   </div>
   <ol class="passos" id="passos" aria-label="Etapas do circuito"><li></li><li></li><li></li><li></li></ol>
   <p class="etapa" id="etapa"></p>
@@ -57,17 +48,47 @@ h1{font-size:18px;margin:0}
     <p class="txt" id="txt" aria-hidden="true"></p>
   </div>
   <button class="go off" id="go" type="button"></button>
+  <input type="file" id="arq" accept="image/*" hidden>
 </div>
 <div class="sr" id="sr" role="status" aria-live="polite"></div>
 <div class="branco" id="branco"></div>
 
+<script src="/cartao.js"></script>
 <script>
-/* ============ cenas desenhadas (SVG) ============ */
-// ► Para usar uma foto no lugar do desenho da cabine: veja o fim do arquivo (FOTO_CABINE).
-const FOTO_CABINE = "1000091692-removebg-preview (1).png";
-
 const PELE = "#d9a67a";
 
+/* ============ motor de animação (JavaScript puro, funciona em qualquer celular) ============ */
+const EST = new WeakMap();
+function est(el){ let s = EST.get(el); if(!s){ s = {x:0, y:0, r:0, s:1, o:1, px:0, py:0}; EST.set(el, s); } return s; }
+function aplica(el){
+  const s = est(el);
+  el.setAttribute("transform", "translate(" + s.x + " " + s.y + ") rotate(" + s.r + " " + s.px + " " + s.py + ") scale(" + s.s + ")");
+  el.setAttribute("opacity", s.o);
+}
+function coloca(el, p){ Object.assign(est(el), p); aplica(el); }
+const suave = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const mola = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
+// leva a peça até os valores de "p" em "ms" milissegundos
+function vai(el, p, ms, ease){
+  const s = est(el), ini = Object.assign({}, s), f = ease || suave;
+  return new Promise(res => {
+    let feito = false;
+    const fim = () => { if(!feito){ feito = true; coloca(el, p); res(); } };
+    if(ms <= 0) return fim();
+    const t0 = performance.now();
+    function passo(t){
+      if(feito) return;
+      const k = Math.min(1, Math.max(0, (t - t0) / ms)), e = f(k);
+      for(const c in p) s[c] = ini[c] + (p[c] - ini[c]) * e;
+      aplica(el);
+      if(k < 1) requestAnimationFrame(passo); else fim();
+    }
+    requestAnimationFrame(passo);
+    setTimeout(fim, ms + 300); // se a aba ficar em segundo plano, termina mesmo assim
+  });
+}
+
+/* ============ cenas desenhadas (SVG) ============ */
 function hall(fundo, id){
   let chao = "";
   for(let x = 0; x <= 400; x += 50) chao += '<line x1="' + (200 + (x - 200) * .45) + '" y1="300" x2="' + x + '" y2="560"/>';
@@ -84,10 +105,13 @@ function hall(fundo, id){
       '<line x1="182" y1="170" x2="182" y2="190" stroke="#8a8a80"/><line x1="218" y1="170" x2="218" y2="190" stroke="#8a8a80"/>' +
       '<rect x="160" y="190" width="80" height="22" rx="3" fill="#86b03a"/><text x="200" y="205" text-anchor="middle" font-size="9" font-weight="bold" fill="#f6f3d6" font-family="Arial">MESÁRIO</text>';
   } else {
-    fim = '<rect x="165" y="236" width="70" height="64" fill="#f1efe6" stroke="#cfcab8"/><rect x="178" y="252" width="44" height="48" fill="#5f8a2c"/>' +
-      '<path d="M190 252V300M200 252V300M210 252V300" stroke="#4d7423" stroke-width="2"/>' +
-      '<line x1="182" y1="170" x2="182" y2="212" stroke="#8a8a80"/><line x1="218" y1="170" x2="218" y2="212" stroke="#8a8a80"/>' +
-      '<rect x="143" y="212" width="114" height="22" rx="3" fill="#86b03a"/><text x="200" y="227" text-anchor="middle" font-size="9" font-weight="bold" fill="#f6f3d6" font-family="Arial">CABINE DE VOTAÇÃO</text>';
+    // cabine branca vista por trás, como na foto: papelão branco com o nome escrito
+    fim = '<rect x="160" y="214" width="80" height="88" fill="#fbfbf8" stroke="#d6d6cf"/>' +
+      '<polygon points="240,214 252,222 252,302 240,302" fill="#e2e2db"/>' +
+      '<line x1="160" y1="258" x2="240" y2="258" stroke="#ececE6"/>' +
+      '<text x="200" y="236" text-anchor="middle" font-size="6.4" font-weight="bold" font-family="Georgia,serif" fill="#1d1d1f">CABINE DE</text>' +
+      '<text x="200" y="245" text-anchor="middle" font-size="6.4" font-weight="bold" font-family="Georgia,serif" fill="#1d1d1f">VOTAÇÃO</text>' +
+      '<text x="200" y="286" text-anchor="middle" font-size="3.6" font-family="Arial" fill="#777">VOTAÇÃO SIMULADA</text>';
     [[336,12],[385,20],[455,32]].forEach(a => { const y = a[0], w = a[1]; fim += '<path d="M200 ' + (y - w * .9) + ' L' + (200 + w) + ' ' + (y + w * .4) + ' L200 ' + (y + w * .05) + ' L' + (200 - w) + ' ' + (y + w * .4) + ' Z" fill="#86b03a" opacity=".75"/>'; });
   }
   return '<g id="' + id + '">' +
@@ -101,6 +125,25 @@ function hall(fundo, id){
     fim + '</g>';
 }
 
+function listaSvg(){
+  let linhas = "";
+  for(let i = 0; i < 7; i++){
+    if(i === 3) continue; // a linha do eleitor é desenhada à parte
+    const y0 = -55 + i * 17;
+    linhas += '<rect x="-58" y="' + (y0 + 6) + '" width="' + (46 + (i * 17) % 30) + '" height="3" fill="#c8c4a8"/><rect x="40" y="' + (y0 + 6) + '" width="16" height="3" fill="#c8c4a8"/>' +
+      '<line x1="-62" y1="' + (y0 + 17) + '" x2="62" y2="' + (y0 + 17) + '" stroke="#9a9680" stroke-width=".8" stroke-dasharray="3 2"/>';
+  }
+  return '<g id="lista">' +
+    '<rect x="-62" y="-75" width="124" height="150" rx="3" fill="#fffef8" stroke="#b9b59a" stroke-width="1.5"/>' +
+    '<rect x="-62" y="-75" width="124" height="18" rx="3" fill="#86b03a"/><text x="0" y="-63.5" text-anchor="middle" font-size="6.3" font-weight="bold" font-family="Arial" fill="#f6f3d6">LISTA DE ELEITORES · SEÇÃO 0001</text>' +
+    linhas +
+    '<rect x="-62" y="-4" width="124" height="17" fill="#e3e1cf"/>' +
+    '<g id="tira"><rect x="-62" y="-4" width="124" height="17" fill="#fffef8"/><rect id="achado" x="-62" y="-4" width="124" height="17" fill="#fff08a" opacity="0"/>' +
+    '<text id="tiraNome" x="-56" y="7.5" font-size="6.6" font-weight="bold" font-family="Arial" fill="#14210a"></text><text id="tiraNum" x="56" y="7.5" text-anchor="end" font-size="6.6" font-family="Arial" fill="#14210a"></text>' +
+    '<line x1="-62" y1="13" x2="62" y2="13" stroke="#9a9680" stroke-width=".8" stroke-dasharray="3 2"/></g>' +
+    '</g>';
+}
+
 function cenaMesa(){
   return '<rect width="400" height="560" fill="#e6e9d2"/><rect y="380" width="400" height="180" fill="#cdc7b4"/>' +
     '<g stroke="#b3ad98" stroke-width="1.2"><line x1="0" y1="430" x2="400" y2="430"/><line x1="0" y1="490" x2="400" y2="490"/><line x1="200" y1="380" x2="200" y2="560"/><line x1="100" y1="380" x2="40" y2="560"/><line x1="300" y1="380" x2="360" y2="560"/></g>' +
@@ -112,13 +155,13 @@ function cenaMesa(){
     '<path d="M193 214L203 250M207 214L205 250" stroke="#86b03a" stroke-width="3" fill="none"/>' +
     '<rect x="185" y="250" width="40" height="28" rx="3" fill="#fff" stroke="#8a8a80"/><rect x="189" y="255" width="14" height="11" fill="#d9a67a"/><rect x="206" y="256" width="15" height="3" fill="#555"/><rect x="206" y="262" width="15" height="3" fill="#999"/><text x="205" y="275" text-anchor="middle" font-size="5.5" font-weight="bold" font-family="Arial" fill="#1a4c8b">MESÁRIO</text>' +
     '<rect x="190" y="198" width="20" height="22" fill="#c4915f"/>' +
-    '<g class="cabeca mv" id="cabeca">' +
+    '<g id="cabeca">' +
       '<circle cx="164" cy="174" r="6" fill="#cf9a6c"/><circle cx="236" cy="174" r="6" fill="#cf9a6c"/>' +
       '<circle cx="200" cy="170" r="36" fill="' + PELE + '"/>' +
       '<path d="M163 168Q161 126 200 126Q239 126 237 168Q226 148 200 148Q174 148 163 168Z" fill="#2b1d14"/>' +
       '<ellipse cx="186" cy="173" rx="6.5" ry="5.5" fill="#fff"/><ellipse cx="214" cy="173" rx="6.5" ry="5.5" fill="#fff"/>' +
-      '<g class="mv" id="pupilas"><circle cx="186" cy="173" r="3" fill="#2b1d14"/><circle cx="214" cy="173" r="3" fill="#2b1d14"/></g>' +
-      '<rect class="lid" x="179" y="167" width="14" height="12" fill="' + PELE + '"/><rect class="lid" x="207" y="167" width="14" height="12" fill="' + PELE + '"/>' +
+      '<g id="pupilas"><circle cx="186" cy="173" r="3" fill="#2b1d14"/><circle cx="214" cy="173" r="3" fill="#2b1d14"/></g>' +
+      '<rect class="lid" x="179" y="167" width="14" height="0" fill="' + PELE + '"/><rect class="lid" x="207" y="167" width="14" height="0" fill="' + PELE + '"/>' +
       '<g fill="none" stroke="#2b2b2d" stroke-width="2.4"><circle cx="186" cy="173" r="11"/><circle cx="214" cy="173" r="11"/><path d="M197 172Q200 169 203 172"/></g>' +
       '<path d="M177 157Q186 152 195 157M205 157Q214 152 223 157" stroke="#2b1d14" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
       '<path d="M200 177Q196 185 201 186" stroke="#b9855a" stroke-width="2" fill="none" stroke-linecap="round"/>' +
@@ -131,50 +174,53 @@ function cenaMesa(){
     '<ellipse cx="166" cy="320" rx="15" ry="8" fill="' + PELE + '"/><ellipse cx="234" cy="320" rx="15" ry="8" fill="' + PELE + '"/>' +
     /* mesa */
     '<rect x="62" y="270" width="86" height="52" rx="4" fill="#c9ccd1" stroke="#8f939a" stroke-width="2"/><rect x="72" y="282" width="12" height="3" fill="#8f939a"/>' +
-    '<rect x="270" y="304" width="70" height="14" fill="#fff" stroke="#c8c4a8" transform="rotate(-4 305 311)"/><rect x="272" y="298" width="70" height="14" fill="#f4f1e0" stroke="#c8c4a8" transform="rotate(3 307 305)"/>' +
     '<rect x="338" y="292" width="16" height="28" rx="3" fill="#1a4c8b"/><path d="M342 292L338 276M347 292L348 274M351 292L356 278" stroke="#c0392b" stroke-width="2"/>' +
     '<rect x="40" y="318" width="320" height="24" rx="4" fill="#d7a874"/><rect x="52" y="342" width="296" height="130" fill="#b98a5a"/>' +
     '<rect x="146" y="324" width="108" height="10" rx="3" fill="#3a3a3c"/>' +
     '<rect x="150" y="376" width="100" height="46" rx="3" fill="#fff" stroke="#c8c4a8"/><text x="200" y="397" text-anchor="middle" font-size="14" font-weight="bold" font-family="Arial" fill="#1a4c8b">MESÁRIO</text><text x="200" y="414" text-anchor="middle" font-size="10" font-family="Arial" fill="#555">Entregue o título aqui</text>' +
     '<rect x="62" y="472" width="22" height="88" fill="#a67a4e"/><rect x="316" y="472" width="22" height="88" fill="#a67a4e"/>' +
+    /* lista de papelzinhos, tesoura e a senha cortada */
+    listaSvg() +
+    '<g id="senha"><rect x="-62" y="-8.5" width="124" height="17" fill="#fffef8" stroke="#9a9680" stroke-width=".8"/><rect x="-62" y="-8.5" width="124" height="17" fill="#fff08a" opacity=".55"/>' +
+      '<text id="senhaNome" x="-56" y="2.5" font-size="6.6" font-weight="bold" font-family="Arial" fill="#14210a"></text><text id="senhaNum" x="56" y="2.5" text-anchor="end" font-size="6.6" font-family="Arial" fill="#14210a"></text></g>' +
+    '<g id="tesoura"><g id="lamA"><path d="M0 -3L-34 0L0 3Z" fill="#c4c9d0" stroke="#7d838b" stroke-width="1"/><circle cx="8" cy="-6" r="5.5" fill="none" stroke="#c0392b" stroke-width="3"/></g>' +
+      '<g id="lamB"><path d="M0 -3L-34 0L0 3Z" fill="#c4c9d0" stroke="#7d838b" stroke-width="1"/><circle cx="8" cy="6" r="5.5" fill="none" stroke="#c0392b" stroke-width="3"/></g></g>' +
     /* título do eleitor + mão */
-    '<g class="mv" id="cartao" style="transform:translate(200px,548px) rotate(-5deg) scale(1.25)">' +
+    '<g id="cartao">' +
       '<rect x="-45" y="-28" width="90" height="56" rx="5" fill="#d6e8bd" stroke="#86b03a" stroke-width="2"/>' +
       '<rect x="-45" y="-28" width="90" height="12" rx="4" fill="#86b03a"/><text x="0" y="-19" text-anchor="middle" font-size="6.5" font-weight="bold" font-family="Arial" fill="#f6f3d6">TÍTULO ELEITORAL</text>' +
       '<rect x="-39" y="-10" width="78" height="9" rx="2" fill="#fff" opacity=".75"/><rect x="-39" y="3" width="34" height="9" rx="2" fill="#fff" opacity=".75"/><rect x="-1" y="3" width="20" height="9" rx="2" fill="#fff" opacity=".75"/>' +
       '<rect x="22" y="6" width="17" height="17" fill="#111"/><rect x="25" y="9" width="4" height="4" fill="#fff"/><rect x="32" y="13" width="4" height="4" fill="#fff"/><rect x="26" y="17" width="4" height="3" fill="#fff"/>' +
-      '<rect class="scan" id="scan" x="-45" y="-2" width="90" height="4" fill="#34c759"/>' +
-      '<g class="mv" id="mao"><rect x="-34" y="70" width="68" height="46" fill="#6b7c93"/><rect x="-26" y="14" width="52" height="70" rx="22" fill="' + PELE + '"/><ellipse cx="-29" cy="10" rx="9" ry="20" transform="rotate(-25 -29 10)" fill="#cf9a6c"/></g>' +
-      '<g class="mv" id="carimbo" style="transform:scale(0);opacity:0"><circle r="21" fill="#34c759"/><path d="M-10 0L-3 8L11 -8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>' +
+      '<svg id="cartaoImg" x="-45" y="-28" width="90" height="56" viewBox="0 0 900 560" preserveAspectRatio="none" style="display:none"><image id="cartaoFoto" x="0" y="0" width="900" height="1160" preserveAspectRatio="none"/></svg>' +
+      '<rect x="-45" y="-28" width="90" height="56" rx="5" fill="none" stroke="#86b03a" stroke-width="2"/>' +
+      '<rect id="scan" x="-45" y="-2" width="90" height="4" fill="#34c759"/>' +
+      '<g id="mao"><rect x="-34" y="70" width="68" height="46" fill="#6b7c93"/><rect x="-26" y="14" width="52" height="70" rx="22" fill="' + PELE + '"/><ellipse cx="-29" cy="10" rx="9" ry="20" transform="rotate(-25 -29 10)" fill="#cf9a6c"/></g>' +
+      '<g id="carimbo"><circle r="21" fill="#34c759"/><path d="M-10 0L-3 8L11 -8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>' +
     '</g>';
 }
 
+// por dentro da cabine: papelão branco, mesinha e a urna
 function cenaCabine(){
-  const urna = '<rect x="128" y="246" width="144" height="86" rx="8" fill="#cfcfc9" stroke="#9a9a92" stroke-width="2"/><rect x="140" y="257" width="76" height="48" fill="#e5eadb" stroke="#555"/><rect x="148" y="266" width="34" height="5" fill="#333"/><rect x="148" y="276" width="52" height="4" fill="#888"/><rect x="148" y="284" width="44" height="4" fill="#888"/>' +
+  const urna = '<g transform="translate(0 10)"><rect x="128" y="246" width="144" height="86" rx="8" fill="#cfcfc9" stroke="#9a9a92" stroke-width="2"/><rect x="140" y="257" width="76" height="48" fill="#e5eadb" stroke="#555"/><rect x="148" y="266" width="34" height="5" fill="#333"/><rect x="148" y="276" width="52" height="4" fill="#888"/><rect x="148" y="284" width="44" height="4" fill="#888"/>' +
     [0,1,2].map(r => [0,1,2].map(c => '<rect x="' + (224 + c * 13) + '" y="' + (257 + r * 12) + '" width="10" height="9" rx="1.5" fill="#2b2b2d"/>').join("")).join("") +
-    '<rect x="224" y="294" width="36" height="9" rx="2" fill="#34c759"/>';
-  const fundo = FOTO_CABINE
-    ? '<image href="' + FOTO_CABINE + '" x="0" y="0" width="400" height="560" preserveAspectRatio="xMidYMid slice"/>'
-    : '<rect width="400" height="560" fill="#e6e9d2"/><rect y="410" width="400" height="150" fill="#cdc7b4"/>' +
-      '<polygon points="30,40 70,66 70,410 30,450" fill="#e2dfd0"/><polygon points="370,40 330,66 330,410 370,450" fill="#d6d2c0"/>' +
-      '<rect x="70" y="66" width="260" height="344" fill="#f1efe6" stroke="#cfcab8" stroke-width="2"/>' +
-      '<rect x="110" y="88" width="180" height="40" rx="6" fill="#86b03a"/><text x="200" y="116" text-anchor="middle" font-size="19" font-weight="bold" fill="#f6f3d6" font-family="Arial">VOTO SECRETO</text>' +
-      '<rect x="92" y="332" width="216" height="14" rx="3" fill="#c99a68"/><rect x="104" y="346" width="12" height="64" fill="#a67a4e"/><rect x="284" y="346" width="12" height="64" fill="#a67a4e"/>' + urna;
-  const prega = x => { let p = ""; for(let i = 12; i < 130; i += 20) p += '<path d="M' + (x + i) + ' 74V400" stroke="#4d7423" stroke-width="3" opacity=".7"/>'; return p; };
-  return fundo +
-    '<rect x="58" y="60" width="284" height="8" rx="3" fill="#6b5a3a"/>' +
-    '<g class="mv" id="cortE" style="transform:translateX(0)"><rect x="70" y="68" width="130" height="334" fill="#5f8a2c"/>' + prega(70) + '</g>' +
-    '<g class="mv" id="cortD" style="transform:translateX(0)"><rect x="200" y="68" width="130" height="334" fill="#5f8a2c"/>' + prega(200) + '</g>';
+    '<rect x="224" y="294" width="36" height="9" rx="2" fill="#34c759"/></g>';
+  return '<g id="gD">' +
+    '<rect width="400" height="560" fill="#e6e9d2"/><rect y="420" width="400" height="140" fill="#cdc7b4"/>' +
+    '<g stroke="#b3ad98" stroke-width="1.2"><line x1="0" y1="480" x2="400" y2="480"/><line x1="200" y1="420" x2="200" y2="560"/><line x1="90" y1="420" x2="20" y2="560"/><line x1="310" y1="420" x2="380" y2="560"/></g>' +
+    '<polygon points="24,40 70,70 70,420 24,470" fill="#efefe9"/><polygon points="376,40 330,70 330,420 376,470" fill="#e2e2db"/>' +
+    '<rect x="70" y="70" width="260" height="350" fill="#fbfbf8"/>' +
+    '<path d="M70 70H330M24 40L70 70M376 40L330 70M70 245H330" stroke="#dcdcd5" stroke-width="2" fill="none"/>' +
+    '<rect x="96" y="342" width="208" height="14" rx="3" fill="#d7a874"/><rect x="108" y="356" width="12" height="64" fill="#a67a4e"/><rect x="280" y="356" width="12" height="64" fill="#a67a4e"/>' +
+    urna + '</g>';
 }
 
 /* ============ lógica do circuito ============ */
 const $ = id => document.getElementById(id);
 const RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
-const dorme = ms => new Promise(r => setTimeout(r, RM ? Math.min(ms, 40) : ms));
-const NOMES_CENA = {A:"Sala de votação, com a mesa do mesário ao fundo", B:"Mesa do mesário", C:"Corredor até a cabine de votação", D:"Cabine de votação"};
+const dorme = ms => new Promise(r => setTimeout(r, ms));
+const NOMES_CENA = {A:"Sala de votação, com a mesa do mesário ao fundo", B:"Mesa do mesário", C:"Corredor até a cabine de votação", D:"Dentro da cabine de votação"};
 const ETAPAS = ["Sala","Mesa do mesário","Cabine","Urna"];
-let token = null, nomeEleitor = "";
-try{ token = sessionStorage.getItem("titulo"); }catch(e){}
+let token = null, nomeEleitor = "", ocupado = false;
 
 async function api(rota, metodo, corpo){
   try{
@@ -184,76 +230,11 @@ async function api(rota, metodo, corpo){
   }catch(e){ return {ok:false, status:0, erro:"rede"}; }
 }
 
-// sons discretos (passos e carimbo)
+// sons discretos (passos, carimbo, tesoura)
 let ac;
 function bate(freq, dur, vol){
   try{
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
     const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
     o.type = "sine"; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, freq / 2), t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur);
-  }catch(e){}
-}
-
-function bonito(n){
-  const peq = ["da","de","do","das","dos","e"];
-  return String(n || "").toLowerCase().split(" ").map((p, i) => (i && peq.includes(p)) ? p : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
-}
-
-function cena(k){
-  ["A","B","C","D"].forEach(x => $("c" + x).classList.toggle("on", x === k));
-  $("stage").setAttribute("aria-label", NOMES_CENA[k]);
-}
-function passo(i){
-  [...$("passos").children].forEach((li, n) => li.classList.toggle("on", n <= i));
-  $("etapa").textContent = "Etapa " + (i + 1) + " de 4 · " + ETAPAS[i];
-}
-
-// move uma peça do desenho (transição CSS) e espera terminar
-function mover(el, transform, ms, opacidade){
-  el.style.setProperty("--d", (RM ? 0 : ms) + "ms");
-  if(transform !== null) el.style.transform = transform;
-  if(opacidade !== undefined) el.style.opacity = opacidade;
-  if(el.id === "cortE"){ // a cortina da direita abre e fecha junto com a da esquerda
-    const d = $("cortD"); d.style.setProperty("--d", (RM ? 0 : ms) + "ms");
-    d.style.transform = transform === null ? "" : transform.replace("-112", "112");
-  }
-  return dorme(ms + 30);
-}
-
-// boca do mesário
-let humor = "neutro";
-function boca(e){ ["neutro","aberta","sorriso","triste"].forEach(n => { const el = $("b-" + n); if(el) el.style.display = n === e ? "" : "none"; }); }
-function olhar(baixo){ mover($("pupilas"), baixo ? "translateY(3px)" : "translateY(0)", 300); }
-function acena(){ mover($("cabeca"), "rotate(5deg)", 220).then(() => mover($("cabeca"), "rotate(-1deg)", 260)).then(() => mover($("cabeca"), "rotate(0deg)", 220)); }
-
-// fala com efeito de digitação
-let falaId = 0;
-async function fala(quem, texto, comBoca){
-  const id = ++falaId, el = $("txt");
-  $("quem").textContent = quem; $("sr").textContent = quem + ": " + texto;
-  if(RM){ el.textContent = texto; return; }
-  el.textContent = "";
-  let aberta = false, iv = comBoca ? setInterval(() => { aberta = !aberta; boca(aberta ? "aberta" : humor); }, 130) : null;
-  for(let i = 1; i <= texto.length; i++){
-    if(id !== falaId) break;
-    el.textContent = texto.slice(0, i);
-    await dorme(i % 2 ? 18 : 26);
-  }
-  if(id === falaId) el.textContent = texto;
-  if(iv){ clearInterval(iv); boca(humor); }
-}
-
-function botao(txt, fn){
-  const b = $("go");
-  b.textContent = txt; b.classList.remove("off"); b.disabled = false;
-  b.onclick = () => { if(b.disabled) return; b.disabled = true; b.classList.add("off"); fn(); };
-}
-function esconde(){ $("go").classList.add("off"); $("go").disabled = true; }
-
-// "andar": aproxima a câmera do fundo da cena, com balanço de passos
-function andar(gId, ms, fim){
-  return new Promise(res => {
-    if(RM) return res();
-    cons
+    g.gain.setValueAtTime(vol, t); g.gain.exponent
