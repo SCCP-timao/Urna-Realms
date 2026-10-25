@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Seção de votação</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef0f4;--ink:#111;--card:#fff;--muted:#667;--verde:#1a7f37;--seg:#d4d8e0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#14151a;--ink:#eee;--card:#22242c;--muted:#a0a4ae;--seg:#3a3d48}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;min-height:100dvh;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;padding:10px 14px 18px}
+.w{width:100%;max-width:460px;display:flex;flex-direction:column;gap:10px}
+.topo{display:flex;justify-content:space-between;align-items:center}
+h1{font-size:18px;margin:0}
+.pular{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:14px;padding:10px 4px;cursor:pointer}
+.passos{display:flex;gap:6px;list-style:none;margin:0;padding:0}
+.passos li{flex:1;height:5px;border-radius:9px;background:var(--seg);transition:background .4s}
+.passos li.on{background:var(--verde)}
+.etapa{font-size:13px;color:var(--muted);margin:-4px 0 0}
+.stage{position:relative;width:min(100%,calc(58vh*.714));width:min(100%,calc(58dvh*.714));aspect-ratio:400/560;margin:0 auto;border-radius:18px;overflow:hidden;background:#e6e9d2;box-shadow:0 4px 18px #0003}
+.cena{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .5s;pointer-events:none}
+.cena.on{opacity:1}
+.fala{background:var(--card);border-radius:14px;padding:12px 14px;min-height:104px}
+.quem{font-size:12px;font-weight:bold;color:var(--muted);margin:0 0 4px}
+.txt{font-size:18px;line-height:1.35;margin:0}
+.go{border:0;border-radius:12px;padding:15px;font-size:17px;font-weight:bold;background:var(--verde);color:#fff;cursor:pointer;width:100%;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.go:disabled{opacity:.6}
+.go.off{visibility:hidden}
+.go:focus-visible,.pular:focus-visible{outline:3px solid #0071e3;outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.branco{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .9s;z-index:9}
+.branco.on{opacity:1}
+
+/* peças animadas dentro das cenas */
+.mv{transition:transform var(--d,.6s) cubic-bezier(.3,.7,.3,1),opacity var(--d,.6s) ease}
+.cabeca{transform-box:view-box;transform-origin:200px 215px}
+.lid{transform-box:fill-box;transform-origin:center top;animation:pisca 5s infinite}
+@keyframes pisca{0%,95%,100%{transform:scaleY(0)}97%{transform:scaleY(1)}}
+.scan{opacity:0}
+.scan.on{opacity:.9;animation:varre .9s ease-in-out infinite alternate}
+@keyframes varre{from{transform:translateY(-26px)}to{transform:translateY(26px)}}
+@media (prefers-reduced-motion:reduce){.mv,.cena,.branco,.passos li{transition:none}.lid,.scan.on{animation:none}}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="topo">
+    <h1>Seção 0001 · Votação simulada</h1>
+    <button class="pular" id="pular" type="button">Pular</button>
+  </div>
+  <ol class="passos" id="passos" aria-label="Etapas do circuito"><li></li><li></li><li></li><li></li></ol>
+  <p class="etapa" id="etapa"></p>
+  <div class="stage" id="stage" role="img" aria-label="Sala de votação"></div>
+  <div class="fala">
+    <p class="quem" id="quem"></p>
+    <p class="txt" id="txt" aria-hidden="true"></p>
+  </div>
+  <button class="go off" id="go" type="button"></button>
+</div>
+<div class="sr" id="sr" role="status" aria-live="polite"></div>
+<div class="branco" id="branco"></div>
+
+<script>
+/* ============ cenas desenhadas (SVG) ============ */
+// ► Para usar uma foto no lugar do desenho da cabine: veja o fim do arquivo (FOTO_CABINE).
+const FOTO_CABINE = "";
+
+const PELE = "#d9a67a";
+
+function hall(fundo, id){
+  let chao = "";
+  for(let x = 0; x <= 400; x += 50) chao += '<line x1="' + (200 + (x - 200) * .45) + '" y1="300" x2="' + x + '" y2="560"/>';
+  [312,326,344,368,402,450,520].forEach(y => { const xl = 110 - 110 * (y - 300) / 260; chao += '<line x1="' + xl + '" y1="' + y + '" x2="' + (400 - xl) + '" y2="' + y + '"/>'; });
+  const luzes = [[170,48,60,12],[182,98,36,8],[190,132,20,5]].map(a => '<rect x="' + a[0] + '" y="' + a[1] + '" width="' + a[2] + '" height="' + a[3] + '" rx="2" fill="#fff"/>').join("");
+  const X = (m, x) => m ? 400 - x : x;
+  const quadro = m => '<polygon points="' + X(m,25) + ',177 ' + X(m,85) + ',199 ' + X(m,85) + ',255 ' + X(m,25) + ',293" fill="#f7f4e2" stroke="#b9b59a" stroke-width="1.5"/>' +
+    '<polygon points="' + X(m,30) + ',197 ' + X(m,80) + ',208 ' + X(m,80) + ',222 ' + X(m,30) + ',223" fill="#86b03a" opacity=".65"/>';
+  let fim = "";
+  if(fundo === "mesa"){
+    fim = '<rect x="146" y="260" width="108" height="8" fill="#d7a874"/><rect x="150" y="268" width="100" height="32" fill="#b98a5a"/>' +
+      '<path d="M184 262V250Q184 238 200 238Q216 238 216 250V262Z" fill="#1a4c8b"/><circle cx="200" cy="228" r="9" fill="' + PELE + '"/>' +
+      '<path d="M191 226Q191 217 200 217Q209 217 209 226Q205 221 200 221Q195 221 191 226Z" fill="#2b1d14"/>' +
+      '<line x1="182" y1="170" x2="182" y2="190" stroke="#8a8a80"/><line x1="218" y1="170" x2="218" y2="190" stroke="#8a8a80"/>' +
+      '<rect x="160" y="190" width="80" height="22" rx="3" fill="#86b03a"/><text x="200" y="205" text-anchor="middle" font-size="9" font-weight="bold" fill="#f6f3d6" font-family="Arial">MESÁRIO</text>';
+  } else {
+    fim = '<rect x="165" y="236" width="70" height="64" fill="#f1efe6" stroke="#cfcab8"/><rect x="178" y="252" width="44" height="48" fill="#5f8a2c"/>' +
+      '<path d="M190 252V300M200 252V300M210 252V300" stroke="#4d7423" stroke-width="2"/>' +
+      '<line x1="182" y1="170" x2="182" y2="212" stroke="#8a8a80"/><line x1="218" y1="170" x2="218" y2="212" stroke="#8a8a80"/>' +
+      '<rect x="143" y="212" width="114" height="22" rx="3" fill="#86b03a"/><text x="200" y="227" text-anchor="middle" font-size="9" font-weight="bold" fill="#f6f3d6" font-family="Arial">CABINE DE VOTAÇÃO</text>';
+    [[336,12],[385,20],[455,32]].forEach(a => { const y = a[0], w = a[1]; fim += '<path d="M200 ' + (y - w * .9) + ' L' + (200 + w) + ' ' + (y + w * .4) + ' L200 ' + (y + w * .05) + ' L' + (200 - w) + ' ' + (y + w * .4) + ' Z" fill="#86b03a" opacity=".75"/>'; });
+  }
+  return '<g id="' + id + '">' +
+    '<rect width="400" height="560" fill="#f6f4ea"/>' +
+    '<polygon points="0,0 400,0 290,170 110,170" fill="#f6f4ea"/>' + luzes +
+    '<polygon points="0,0 110,170 110,300 0,560" fill="#dfe3c8"/><polygon points="400,0 290,170 290,300 400,560" fill="#d3d8b9"/>' +
+    quadro(0) + quadro(1) +
+    '<rect x="110" y="170" width="180" height="130" fill="#e6e9d2"/>' +
+    '<polygon points="110,300 290,300 400,560 0,560" fill="#cdc7b4"/>' +
+    '<g stroke="#b3ad98" stroke-width="1.2" fill="none">' + chao + '</g>' +
+    fim + '</g>';
+}
+
+function cenaMesa(){
+  return '<rect width="400" height="560" fill="#e6e9d2"/><rect y="380" width="400" height="180" fill="#cdc7b4"/>' +
+    '<g stroke="#b3ad98" stroke-width="1.2"><line x1="0" y1="430" x2="400" y2="430"/><line x1="0" y1="490" x2="400" y2="490"/><line x1="200" y1="380" x2="200" y2="560"/><line x1="100" y1="380" x2="40" y2="560"/><line x1="300" y1="380" x2="360" y2="560"/></g>' +
+    '<rect x="115" y="34" width="170" height="44" rx="6" fill="#86b03a"/><text x="200" y="62" text-anchor="middle" font-size="22" font-weight="bold" fill="#f6f3d6" font-family="Arial">SEÇÃO 0001</text>' +
+    '<circle cx="70" cy="112" r="26" fill="#fff" stroke="#555" stroke-width="3"/><path d="M70 112V94M70 112L82 119" stroke="#333" stroke-width="3" stroke-linecap="round"/>' +
+    '<rect x="302" y="76" width="74" height="96" fill="#f7f4e2" stroke="#b9b59a" stroke-width="1.5"/><rect x="310" y="86" width="58" height="12" fill="#86b03a" opacity=".7"/><rect x="310" y="106" width="58" height="6" fill="#c8c4a8"/><rect x="310" y="118" width="48" height="6" fill="#c8c4a8"/><rect x="310" y="130" width="54" height="6" fill="#c8c4a8"/>' +
+    /* mesário */
+    '<path d="M135 340V272Q135 214 200 214Q265 214 265 272V340Z" fill="#1a4c8b"/>' +
+    '<path d="M193 214L203 250M207 214L205 250" stroke="#86b03a" stroke-width="3" fill="none"/>' +
+    '<rect x="185" y="250" width="40" height="28" rx="3" fill="#fff" stroke="#8a8a80"/><rect x="189" y="255" width="14" height="11" fill="#d9a67a"/><rect x="206" y="256" width="15" height="3" fill="#555"/><rect x="206" y="262" width="15" height="3" fill="#999"/><text x="205" y="275" text-anchor="middle" font-size="5.5" font-weight="bold" font-family="Arial" fill="#1a4c8b">MESÁRIO</text>' +
+    '<rect x="190" y="198" width="20" height="22" fill="#c4915f"/>' +
+    '<g class="cabeca mv" id="cabeca">' +
+      '<circle cx="164" cy="174" r="6" fill="#cf9a6c"/><circle cx="236" cy="174" r="6" fill="#cf9a6c"/>' +
+      '<circle cx="200" cy="170" r="36" fill="' + PELE + '"/>' +
+      '<path d="M163 168Q161 126 200 126Q239 126 237 168Q226 148 200 148Q174 148 163 168Z" fill="#2b1d14"/>' +
+      '<ellipse cx="186" cy="173" rx="6.5" ry="5.5" fill="#fff"/><ellipse cx="214" cy="173" rx="6.5" ry="5.5" fill="#fff"/>' +
+      '<g class="mv" id="pupilas"><circle cx="186" cy="173" r="3" fill="#2b1d14"/><circle cx="214" cy="173" r="3" fill="#2b1d14"/></g>' +
+      '<rect class="lid" x="179" y="167" width="14" height="12" fill="' + PELE + '"/><rect class="lid" x="207" y="167" width="14" height="12" fill="' + PELE + '"/>' +
+      '<g fill="none" stroke="#2b2b2d" stroke-width="2.4"><circle cx="186" cy="173" r="11"/><circle cx="214" cy="173" r="11"/><path d="M197 172Q200 169 203 172"/></g>' +
+      '<path d="M177 157Q186 152 195 157M205 157Q214 152 223 157" stroke="#2b1d14" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
+      '<path d="M200 177Q196 185 201 186" stroke="#b9855a" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+      '<path id="b-neutro" d="M190 195Q200 198 210 195" stroke="#7a2f2f" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
+      '<ellipse id="b-aberta" cx="200" cy="196" rx="7" ry="5" fill="#7a2f2f" style="display:none"/>' +
+      '<path id="b-sorriso" d="M188 192Q200 206 212 192" stroke="#7a2f2f" stroke-width="2.8" fill="none" stroke-linecap="round" style="display:none"/>' +
+      '<path id="b-triste" d="M190 199Q200 191 210 199" stroke="#7a2f2f" stroke-width="2.8" fill="none" stroke-linecap="round" style="display:none"/>' +
+    '</g>' +
+    '<path d="M140 252Q126 304 150 326L178 326Q168 290 168 264Z" fill="#1a4c8b"/><path d="M260 252Q274 304 250 326L222 326Q232 290 232 264Z" fill="#1a4c8b"/>' +
+    '<ellipse cx="166" cy="320" rx="15" ry="8" fill="' + PELE + '"/><ellipse cx="234" cy="320" rx="15" ry="8" fill="' + PELE + '"/>' +
+    /* mesa */
+    '<rect x="62" y="270" width="86" height="52" rx="4" fill="#c9ccd1" stroke="#8f939a" stroke-width="2"/><rect x="72" y="282" width="12" height="3" fill="#8f939a"/>' +
+    '<rect x="270" y="304" width="70" height="14" fill="#fff" stroke="#c8c4a8" transform="rotate(-4 305 311)"/><rect x="272" y="298" width="70" height="14" fill="#f4f1e0" stroke="#c8c4a8" transform="rotate(3 307 305)"/>' +
+    '<rect x="338" y="292" width="16" height="28" rx="3" fill="#1a4c8b"/><path d="M342 292L338 276M347 292L348 274M351 292L356 278" stroke="#c0392b" stroke-width="2"/>' +
+    '<rect x="40" y="318" width="320" height="24" rx="4" fill="#d7a874"/><rect x="52" y="342" width="296" height="130" fill="#b98a5a"/>' +
+    '<rect x="146" y="324" width="108" height="10" rx="3" fill="#3a3a3c"/>' +
+    '<rect x="150" y="376" width="100" height="46" rx="3" fill="#fff" stroke="#c8c4a8"/><text x="200" y="397" text-anchor="middle" font-size="14" font-weight="bold" font-family="Arial" fill="#1a4c8b">MESÁRIO</text><text x="200" y="414" text-anchor="middle" font-size="10" font-family="Arial" fill="#555">Entregue o título aqui</text>' +
+    '<rect x="62" y="472" width="22" height="88" fill="#a67a4e"/><rect x="316" y="472" width="22" height="88" fill="#a67a4e"/>' +
+    /* título do eleitor + mão */
+    '<g class="mv" id="cartao" style="transform:translate(200px,548px) rotate(-5deg) scale(1.25)">' +
+      '<rect x="-45" y="-28" width="90" height="56" rx="5" fill="#d6e8bd" stroke="#86b03a" stroke-width="2"/>' +
+      '<rect x="-45" y="-28" width="90" height="12" rx="4" fill="#86b03a"/><text x="0" y="-19" text-anchor="middle" font-size="6.5" font-weight="bold" font-family="Arial" fill="#f6f3d6">TÍTULO ELEITORAL</text>' +
+      '<rect x="-39" y="-10" width="78" height="9" rx="2" fill="#fff" opacity=".75"/><rect x="-39" y="3" width="34" height="9" rx="2" fill="#fff" opacity=".75"/><rect x="-1" y="3" width="20" height="9" rx="2" fill="#fff" opacity=".75"/>' +
+      '<rect x="22" y="6" width="17" height="17" fill="#111"/><rect x="25" y="9" width="4" height="4" fill="#fff"/><rect x="32" y="13" width="4" height="4" fill="#fff"/><rect x="26" y="17" width="4" height="3" fill="#fff"/>' +
+      '<rect class="scan" id="scan" x="-45" y="-2" width="90" height="4" fill="#34c759"/>' +
+      '<g class="mv" id="mao"><rect x="-34" y="70" width="68" height="46" fill="#6b7c93"/><rect x="-26" y="14" width="52" height="70" rx="22" fill="' + PELE + '"/><ellipse cx="-29" cy="10" rx="9" ry="20" transform="rotate(-25 -29 10)" fill="#cf9a6c"/></g>' +
+      '<g class="mv" id="carimbo" style="transform:scale(0);opacity:0"><circle r="21" fill="#34c759"/><path d="M-10 0L-3 8L11 -8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>' +
+    '</g>';
+}
+
+function cenaCabine(){
+  const urna = '<rect x="128" y="246" width="144" height="86" rx="8" fill="#cfcfc9" stroke="#9a9a92" stroke-width="2"/><rect x="140" y="257" width="76" height="48" fill="#e5eadb" stroke="#555"/><rect x="148" y="266" width="34" height="5" fill="#333"/><rect x="148" y="276" width="52" height="4" fill="#888"/><rect x="148" y="284" width="44" height="4" fill="#888"/>' +
+    [0,1,2].map(r => [0,1,2].map(c => '<rect x="' + (224 + c * 13) + '" y="' + (257 + r * 12) + '" width="10" height="9" rx="1.5" fill="#2b2b2d"/>').join("")).join("") +
+    '<rect x="224" y="294" width="36" height="9" rx="2" fill="#34c759"/>';
+  const fundo = FOTO_CABINE
+    ? '<image href="' + FOTO_CABINE + '" x="0" y="0" width="400" height="560" preserveAspectRatio="xMidYMid slice"/>'
+    : '<rect width="400" height="560" fill="#e6e9d2"/><rect y="410" width="400" height="150" fill="#cdc7b4"/>' +
+      '<polygon points="30,40 70,66 70,410 30,450" fill="#e2dfd0"/><polygon points="370,40 330,66 330,410 370,450" fill="#d6d2c0"/>' +
+      '<rect x="70" y="66" width="260" height="344" fill="#f1efe6" stroke="#cfcab8" stroke-width="2"/>' +
+      '<rect x="110" y="88" width="180" height="40" rx="6" fill="#86b03a"/><text x="200" y="116" text-anchor="middle" font-size="19" font-weight="bold" fill="#f6f3d6" font-family="Arial">VOTO SECRETO</text>' +
+      '<rect x="92" y="332" width="216" height="14" rx="3" fill="#c99a68"/><rect x="104" y="346" width="12" height="64" fill="#a67a4e"/><rect x="284" y="346" width="12" height="64" fill="#a67a4e"/>' + urna;
+  const prega = x => { let p = ""; for(let i = 12; i < 130; i += 20) p += '<path d="M' + (x + i) + ' 74V400" stroke="#4d7423" stroke-width="3" opacity=".7"/>'; return p; };
+  return fundo +
+    '<rect x="58" y="60" width="284" height="8" rx="3" fill="#6b5a3a"/>' +
+    '<g class="mv" id="cortE" style="transform:translateX(0)"><rect x="70" y="68" width="130" height="334" fill="#5f8a2c"/>' + prega(70) + '</g>' +
+    '<g class="mv" id="cortD" style="transform:translateX(0)"><rect x="200" y="68" width="130" height="334" fill="#5f8a2c"/>' + prega(200) + '</g>';
+}
+
+/* ============ lógica do circuito ============ */
+const $ = id => document.getElementById(id);
+const RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+const dorme = ms => new Promise(r => setTimeout(r, RM ? Math.min(ms, 40) : ms));
+const NOMES_CENA = {A:"Sala de votação, com a mesa do mesário ao fundo", B:"Mesa do mesário", C:"Corredor até a cabine de votação", D:"Cabine de votação"};
+const ETAPAS = ["Sala","Mesa do mesário","Cabine","Urna"];
+let token = null, nomeEleitor = "";
+try{ token = sessionStorage.getItem("titulo"); }catch(e){}
+
+async function api(rota, metodo, corpo){
+  try{
+    const r = await fetch("/api/" + rota, {method:metodo, headers:{"Content-Type":"application/json"}, body: corpo ? JSON.stringify(corpo) : undefined});
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return Object.assign({ok:r.ok, status:r.status}, j);
+  }catch(e){ return {ok:false, status:0, erro:"rede"}; }
+}
+
+// sons discretos (passos e carimbo)
+let ac;
+function bate(freq, dur, vol){
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.type = "sine"; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, freq / 2), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur);
+  }catch(e){}
+}
+
+function bonito(n){
+  const peq = ["da","de","do","das","dos","e"];
+  return String(n || "").toLowerCase().split(" ").map((p, i) => (i && peq.includes(p)) ? p : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+
+function cena(k){
+  ["A","B","C","D"].forEach(x => $("c" + x).classList.toggle("on", x === k));
+  $("stage").setAttribute("aria-label", NOMES_CENA[k]);
+}
+function passo(i){
+  [...$("passos").children].forEach((li, n) => li.classList.toggle("on", n <= i));
+  $("etapa").textContent = "Etapa " + (i + 1) + " de 4 · " + ETAPAS[i];
+}
+
+// move uma peça do desenho (transição CSS) e espera terminar
+function mover(el, transform, ms, opacidade){
+  el.style.setProperty("--d", (RM ? 0 : ms) + "ms");
+  if(transform !== null) el.style.transform = transform;
+  if(opacidade !== undefined) el.style.opacity = opacidade;
+  if(el.id === "cortE"){ // a cortina da direita abre e fecha junto com a da esquerda
+    const d = $("cortD"); d.style.setProperty("--d", (RM ? 0 : ms) + "ms");
+    d.style.transform = transform === null ? "" : transform.replace("-112", "112");
+  }
+  return dorme(ms + 30);
+}
+
+// boca do mesário
+let humor = "neutro";
+function boca(e){ ["neutro","aberta","sorriso","triste"].forEach(n => { const el = $("b-" + n); if(el) el.style.display = n === e ? "" : "none"; }); }
+function olhar(baixo){ mover($("pupilas"), baixo ? "translateY(3px)" : "translateY(0)", 300); }
+function acena(){ mover($("cabeca"), "rotate(5deg)", 220).then(() => mover($("cabeca"), "rotate(-1deg)", 260)).then(() => mover($("cabeca"), "rotate(0deg)", 220)); }
+
+// fala com efeito de digitação
+let falaId = 0;
+async function fala(quem, texto, comBoca){
+  const id = ++falaId, el = $("txt");
+  $("quem").textContent = quem; $("sr").textContent = quem + ": " + texto;
+  if(RM){ el.textContent = texto; return; }
+  el.textContent = "";
+  let aberta = false, iv = comBoca ? setInterval(() => { aberta = !aberta; boca(aberta ? "aberta" : humor); }, 130) : null;
+  for(let i = 1; i <= texto.length; i++){
+    if(id !== falaId) break;
+    el.textContent = texto.slice(0, i);
+    await dorme(i % 2 ? 18 : 26);
+  }
+  if(id === falaId) el.textContent = texto;
+  if(iv){ clearInterval(iv); boca(humor); }
+}
+
+function botao(txt, fn){
+  const b = $("go");
+  b.textContent = txt; b.classList.remove("off"); b.disabled = false;
+  b.onclick = () => { if(b.disabled) return; b.disabled = true; b.classList.add("off"); fn(); };
+}
+function esconde(){ $("go").classList.add("off"); $("go").disabled = true; }
+
+// "andar": aproxima a câmera do fundo da cena, com balanço de passos
+function andar(gId, ms, fim){
+  return new Promise(res => {
+    if(RM) return res();
+    cons
