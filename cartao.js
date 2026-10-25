@@ -1,6 +1,7 @@
 // Desenho do título (frente e verso), selo de segurança e leitura do PNG.
+// O selo de segurança fica no MESMO lugar de antes (CHIP), então os PNGs já baixados continuam valendo.
 const CHIP = {x:40, y:900, c:28, W:900, H:1160};
-const hojeStr = new Date().toLocaleDateString("pt-BR");
+const EMISSAO = "25/10/2026"; // ► data de emissão que aparece em todos os títulos
 
 function bitsDoToken(token){
   const p = token.split("-");
@@ -16,47 +17,151 @@ function tokenDosBits(b){
   return String(n).padStart(4, "0") + "-" + s;
 }
 
-function campo(x, r, v, px, py, tam){
-  x.fillStyle = "#46607a"; x.font = "bold 16px Arial"; x.fillText(r, px, py);
-  x.fillStyle = "#111"; x.font = "bold " + (tam || 34) + "px Arial"; x.fillText(v, px, py + 40);
+/* ---------- peças de desenho ---------- */
+const VERDE_TXT = "#3d5a1e", VERDE_ROT = "#516f30", SERIF = "Georgia, 'Times New Roman', serif";
+
+function rr(x, X, Y, W, H, R){
+  x.beginPath(); x.moveTo(X + R, Y); x.arcTo(X + W, Y, X + W, Y + H, R); x.arcTo(X + W, Y + H, X, Y + H, R);
+  x.arcTo(X, Y + H, X, Y, R); x.arcTo(X, Y, X + W, Y, R); x.closePath();
 }
 
+// Linhas onduladas cruzadas, como o fundo de segurança dos documentos (guilhochê)
+function guilhoche(x, W, H, cor, a){
+  x.save(); x.lineWidth = 0.8; x.strokeStyle = cor; x.globalAlpha = a;
+  for(let fam = 0; fam < 2; fam++){
+    for(let k = 0; k < 48; k++){
+      x.beginPath();
+      for(let px = 0; px <= W; px += 5){
+        const s = fam ? -1 : 1;
+        const y = H * 0.5 + Math.sin(px * 0.012 * s + k * 0.22) * H * 0.28 + Math.sin(px * 0.031 + k * 0.15 * s) * H * 0.09 + (k - 24) * 6.4;
+        px ? x.lineTo(px, y) : x.moveTo(px, y);
+      }
+      x.stroke();
+    }
+  }
+  x.restore();
+}
+
+// Moldura em "corda" nas quatro bordas
+function moldura(x, W, H, fundo, ponto){
+  const b = 18;
+  x.fillStyle = fundo;
+  x.fillRect(0, 0, W, b); x.fillRect(0, H - b, W, b); x.fillRect(0, 0, b, H); x.fillRect(W - b, 0, b, H);
+  x.fillStyle = ponto;
+  for(let i = 8; i < W - 6; i += 9){ x.beginPath(); x.arc(i, b / 2, 3.1, 0, 7); x.fill(); x.beginPath(); x.arc(i, H - b / 2, 3.1, 0, 7); x.fill(); }
+  for(let j = 8; j < H - 6; j += 9){ x.beginPath(); x.arc(b / 2, j, 3.1, 0, 7); x.fill(); x.beginPath(); x.arc(W - b / 2, j, 3.1, 0, 7); x.fill(); }
+  x.strokeStyle = fundo; x.lineWidth = 1.5; x.strokeRect(b + 3, b + 3, W - 2 * b - 6, H - 2 * b - 6);
+}
+
+// Marca d'água central (no lugar do brasão): rosácea + a palavra SIMULAÇÃO
+function marcaDagua(x, cx, cy, r){
+  x.save(); x.translate(cx, cy); x.strokeStyle = "#5f8a2c"; x.lineWidth = 1.2; x.globalAlpha = 0.16;
+  for(let i = 0; i < 36; i++){ x.rotate(Math.PI / 18); x.beginPath(); x.ellipse(r * 0.55, 0, r * 0.45, r * 0.17, 0, 0, 7); x.stroke(); }
+  for(let k = 1; k <= 4; k++){ x.beginPath(); x.arc(0, 0, r * k / 4, 0, 7); x.stroke(); }
+  x.restore();
+  x.save(); x.translate(cx, cy + 6); x.rotate(-0.2); x.globalAlpha = 0.09; x.fillStyle = "#2f4a14";
+  x.font = "bold 92px Arial"; x.textAlign = "center"; x.fillText("SIMULAÇÃO", 0, 0); x.restore();
+}
+
+// Reduz a letra até o texto caber na largura
+function ajusta(x, s, maxW, tam, peso){
+  while(tam > 12){ x.font = peso + " " + tam + "px Arial"; if(x.measureText(s).width <= maxW) break; tam--; }
+  return tam;
+}
+
+function campo(x, rotulo, valor, X, Y, W, H, tam){
+  rr(x, X, Y, W, H, 8); x.fillStyle = "rgba(255,255,255,0.55)"; x.fill();
+  x.strokeStyle = "rgba(61,90,30,0.45)"; x.lineWidth = 1.5; x.stroke();
+  x.fillStyle = VERDE_ROT; x.font = "bold 12px Arial"; x.textAlign = "left"; x.fillText(rotulo, X + 12, Y + 19);
+  const t = ajusta(x, valor, W - 24, tam || 26, "bold");
+  x.fillStyle = "#14210a"; x.font = "bold " + t + "px Arial"; x.fillText(valor, X + 12, Y + H - 13);
+}
+
+// Data de nascimento fictícia, sempre a mesma para o mesmo número
+function nasc(num){
+  const n = +num, d = 1 + n % 28, m = 1 + (n * 7) % 12, a = 1975 + (n * 13) % 30;
+  return String(d).padStart(2, "0") + "/" + String(m).padStart(2, "0") + "/" + a;
+}
+
+/* ---------- frente e verso ---------- */
 function frente(c, nome, num){
   c.width = 900; c.height = 560; const x = c.getContext("2d");
-  const g = x.createLinearGradient(0,0,900,560); g.addColorStop(0,"#fdf6d8"); g.addColorStop(1,"#cfe6f7");
-  x.fillStyle = g; x.fillRect(0,0,900,560);
-  x.fillStyle = "#0b4f8a"; x.fillRect(0,0,900,110);
-  x.fillStyle = "#fff"; x.font = "bold 42px Arial"; x.fillText("TÍTULO DE ELEITOR", 40, 62);
-  x.font = "18px Arial"; x.fillText("SIMULAÇÃO · SEM VALIDADE OFICIAL", 40, 92);
-  x.beginPath(); x.arc(820,55,34,0,7); x.fillStyle = "#f2c200"; x.fill();
-  x.strokeStyle = "#0b4f8a"; x.lineWidth = 7; x.beginPath(); x.moveTo(804,56); x.lineTo(816,70); x.lineTo(840,40); x.stroke();
-  campo(x, "NOME", nome.toUpperCase(), 40, 170, nome.length > 22 ? 28 : 34);
-  campo(x, "Nº DO TÍTULO", num, 40, 275, 46);
-  campo(x, "ZONA", "001", 330, 275); campo(x, "SEÇÃO", "0001", 480, 275);
-  campo(x, "EMISSÃO", hojeStr, 40, 390, 30); campo(x, "ELEIÇÃO", "Presidencial (simulada)", 330, 390, 30);
-  x.setLineDash([8,6]); x.strokeStyle = "#46607a"; x.lineWidth = 2; x.strokeRect(710,140,150,190); x.setLineDash([]);
-  x.fillStyle = "#8d9285"; x.beginPath(); x.arc(785,215,32,0,7); x.fill(); x.beginPath(); x.ellipse(785,320,55,45,0,Math.PI,0); x.fill();
-  x.fillStyle = "#0b4f8a"; x.fillRect(0,500,900,60);
-  x.fillStyle = "#fff"; x.font = "16px Arial"; x.fillText("Documento fictício para uso exclusivo nesta votação.", 40, 536);
+  const g = x.createLinearGradient(0, 0, 900, 560); g.addColorStop(0, "#c9e4b0"); g.addColorStop(0.5, "#e6f0c6"); g.addColorStop(1, "#bfdca5");
+  x.fillStyle = g; x.fillRect(0, 0, 900, 560);
+  guilhoche(x, 900, 560, "#5f8a2c", 0.22);
+  marcaDagua(x, 450, 330, 170);
+  moldura(x, 900, 560, "#86b03a", "rgba(255,255,255,0.55)");
+
+  x.textAlign = "center"; x.fillStyle = VERDE_TXT; x.font = "bold 25px " + SERIF;
+  x.fillText("REPÚBLICA FEDERATIVA DO BRASIL", 450, 62);
+  x.strokeStyle = "rgba(61,90,30,0.5)"; x.lineWidth = 1.5; x.beginPath(); x.moveTo(40, 76); x.lineTo(860, 76); x.stroke();
+  x.textAlign = "left"; x.font = "bold 30px " + SERIF; x.fillStyle = "#1f3a0d"; x.fillText("TÍTULO ELEITORAL", 40, 116);
+  x.textAlign = "right"; x.fillStyle = "#1a4c8b"; x.font = "bold 17px Arial";
+  x.fillText("IDENTIFICAÇÃO", 860, 99); x.fillText("BIOMÉTRICA", 860, 120);
+
+  campo(x, "NOME DO ELEITOR", nome.toUpperCase(), 40, 140, 820, 64, 28);
+  campo(x, "DATA DE NASCIMENTO", nasc(num), 40, 214, 210, 64, 26);
+  campo(x, "Nº INSCRIÇÃO", num, 262, 214, 330, 64, 28);
+  campo(x, "ZONA", "001", 604, 214, 120, 64, 26);
+  campo(x, "SEÇÃO", "0001", 736, 214, 124, 64, 26);
+  campo(x, "MUNICÍPIO / UF", "SIMULAÇÃO / BR", 40, 288, 540, 64, 26);
+  campo(x, "DATA DE EMISSÃO", EMISSAO, 592, 288, 268, 64, 26);
+
+  // assinatura do juiz (rabisco) e linha
+  x.save(); x.strokeStyle = "#1a2a6c"; x.lineWidth = 2.4; x.lineJoin = "round"; x.beginPath();
+  for(let t = 0; t <= 1; t += 0.01){
+    const px = 300 + t * 300, py = 418 + Math.sin(t * 24) * 17 * (1 - t * 0.45) + Math.sin(t * 7.5) * 9;
+    t ? x.lineTo(px, py) : x.moveTo(px, py);
+  }
+  x.stroke(); x.restore();
+  x.strokeStyle = VERDE_TXT; x.lineWidth = 1.5; x.beginPath(); x.moveTo(250, 456); x.lineTo(650, 456); x.stroke();
+  x.textAlign = "center"; x.fillStyle = VERDE_TXT; x.font = "bold 13px Arial";
+  x.fillText("JUIZ(A) ELEITORAL · SIMULAÇÃO", 450, 476);
+  x.font = "13px Arial"; x.fillText("Documento fictício para uso exclusivo nesta votação · sem validade oficial", 450, 520);
+  x.textAlign = "left";
 }
 
 function verso(c, nome, num, token){
   c.width = 900; c.height = 560; const x = c.getContext("2d");
-  const g = x.createLinearGradient(0,0,900,560); g.addColorStop(0,"#0b4f8a"); g.addColorStop(1,"#1d7bc4");
-  x.fillStyle = g; x.fillRect(0,0,900,560);
-  x.fillStyle = "#fff"; x.font = "bold 34px Arial"; x.fillText("COMO VOTAR", 40, 70);
-  x.font = "24px Arial";
-  ["1. Abra o site e toque em Adicionar título.", "2. Envie este arquivo PNG (inteiro, sem cortar).", "3. Confirme e digite o número do candidato.", "4. Cada título vota uma única vez. Não compartilhe."].forEach((t,i) => x.fillText(t, 40, 130 + i*42));
-  // selo de segurança: é a chave pessoal deste título
+  const g = x.createLinearGradient(0, 0, 900, 560); g.addColorStop(0, "#f1f2cc"); g.addColorStop(1, "#dde9ae");
+  x.fillStyle = g; x.fillRect(0, 0, 900, 560);
+  guilhoche(x, 900, 560, "#7fa532", 0.2);
+  moldura(x, 900, 560, "#86b03a", "rgba(255,255,255,0.55)");
+
+  // faixa do topo
+  x.fillStyle = "#86b03a"; x.fillRect(18, 18, 864, 56);
+  x.textAlign = "center"; x.fillStyle = "#f6f3d6"; x.font = "bold 27px " + SERIF; x.fillText("REPÚBLICA FEDERATIVA DO BRASIL", 450, 55);
+
+  // painel com as instruções
+  rr(x, 44, 94, 530, 164, 10); x.fillStyle = "rgba(255,255,255,0.62)"; x.fill();
+  x.textAlign = "left"; x.fillStyle = VERDE_TXT; x.font = "bold 20px Arial"; x.fillText("COMO VOTAR", 62, 124);
+  x.fillStyle = "#14210a"; x.font = "16px Arial";
+  ["1. Abra o site e toque em Adicionar título.", "2. Envie este arquivo PNG inteiro, sem cortar.", "3. Confirme, siga até a mesa e depois à cabine.", "4. Cada título vota uma única vez. Não compartilhe."].forEach((t, i) => x.fillText(t, 62, 152 + i * 25));
+  x.fillStyle = VERDE_ROT; x.font = "12px Arial"; x.fillText("Simulação · sem validade oficial · " + location.origin, 62, 248);
+
+  // selo de segurança (a chave pessoal deste título; fica nesta posição exata)
+  x.fillStyle = VERDE_ROT; x.font = "bold 11px Arial"; x.fillText("SELO DE SEGURANÇA · PESSOAL E INTRANSFERÍVEL", 30, 280);
   x.fillStyle = "#fff"; x.fillRect(28, 288, 248, 248);
   const b = bitsDoToken(token); x.fillStyle = "#111";
   for(let i = 0; i < 64; i++) if(b[i] === "1") x.fillRect(CHIP.x + (i % 8) * CHIP.c, 300 + Math.floor(i / 8) * CHIP.c, CHIP.c, CHIP.c);
-  x.fillStyle = "#fff"; x.font = "bold 26px Arial"; x.fillText("SELO DE SEGURANÇA", 300, 330);
-  x.font = "21px Arial"; x.fillText("Pessoal e intransferível.", 300, 370);
-  x.fillText("Não corte nem edite o arquivo.", 300, 402);
-  x.font = "bold 26px Arial"; x.fillText("Nº " + num, 300, 470);
-  x.font = "22px Arial"; x.fillText(nome, 300, 505);
-  x.font = "15px Arial"; x.fillText(location.origin, 300, 540);
+
+  // caixa em "L": polegar direito + assinatura
+  x.fillStyle = "#14210a"; x.font = "bold 13px Arial"; x.fillText("POLEGAR DIREITO", 600, 110);
+  x.beginPath(); x.moveTo(600, 120); x.lineTo(860, 120); x.lineTo(860, 490); x.lineTo(300, 490); x.lineTo(300, 420); x.lineTo(600, 420); x.closePath();
+  x.fillStyle = "#fff"; x.fill(); x.strokeStyle = "#14210a"; x.lineWidth = 2.5; x.stroke();
+  // impressão digital desenhada bem clara
+  x.save(); x.strokeStyle = "rgba(61,90,30,0.14)"; x.lineWidth = 2;
+  for(let r = 14; r < 100; r += 8){ x.beginPath(); x.ellipse(730, 270, r * 0.75, r, 0, Math.PI * 0.85, Math.PI * 2.15); x.stroke(); }
+  x.restore();
+  // dados do eleitor dentro da caixa de assinatura
+  x.fillStyle = "#14210a"; x.font = "bold 18px Arial"; x.fillText("Nº " + num, 316, 446);
+  const t = ajusta(x, nome, 520, 18, "normal"); x.font = t + "px Arial"; x.fillText(nome, 316, 473);
+  x.fillStyle = VERDE_ROT; x.font = "12px Arial"; x.fillText("ASSINATURA OU IMPRESSÃO DIGITAL DO ELEITOR", 300, 507);
+
+  // rodapé verde
+  x.fillStyle = "#86b03a"; x.fillRect(290, 516, 574, 26);
+  x.textAlign = "center"; x.fillStyle = "#f6f3d6"; x.font = "bold 13px Arial"; x.fillText("VÁLIDO SOMENTE COM MARCA D'ÁGUA - JUSTIÇA ELEITORAL", 577, 534);
+  x.textAlign = "left";
 }
 
 function baixar(d){
