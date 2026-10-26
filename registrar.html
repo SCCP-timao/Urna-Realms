@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Registrar biometria</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef0f4;--ink:#111;--card:#fff;--bt:#0b4f8a;--muted:#667;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#14151a;--ink:#eee;--card:#22242c;--muted:#a0a4ae}}
+*{box-sizing:border-box}
+body{margin:0;padding:14px;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center}
+.w{width:100%;max-width:460px}
+h1{font-size:20px;margin:8px 0 6px;text-align:center}
+.sub{text-align:center;font-size:14px;color:var(--muted);margin:0 0 12px;line-height:1.5}
+.aviso{min-height:22px;text-align:center;font-weight:bold;margin:8px 0;color:#1a7f37;line-height:1.4}
+.aviso.e{color:#c00}
+.slot,.caixa{border:3px dashed var(--muted);border-radius:16px;padding:22px 16px;text-align:center;background:var(--card)}
+.caixa{border-style:solid;border-color:#c9741a;line-height:1.5;font-size:16px}
+.slot .p{font-size:54px;line-height:1;color:var(--bt);font-weight:bold}
+.slot .t{font-size:18px;font-weight:bold;margin:8px 0 10px}
+button{border:0;border-radius:10px;padding:14px;font-size:16px;font-weight:bold;cursor:pointer;background:var(--bt);color:#fff;width:100%;margin-top:12px}
+button.v{background:#1faa3b}
+button.l{background:none;color:var(--muted);text-decoration:underline;font-weight:normal;font-size:14px}
+button:disabled{opacity:.6}
+canvas{width:100%;border-radius:12px;box-shadow:0 4px 14px #0004;display:block}
+.nm{text-align:center;font-weight:bold;margin:14px 0 2px;font-size:18px}
+.dica{text-align:center;font-size:12px;color:var(--muted);line-height:1.5}
+.ok{display:none;text-align:center;background:var(--card);border:3px solid #1a7f37;border-radius:16px;padding:22px 16px}
+.ok .g{font-size:54px;line-height:1;color:#1a7f37}
+.ok .t{font-size:20px;font-weight:bold;margin:8px 0}
+a.volta{display:block;text-align:center;margin-top:18px;color:var(--muted);font-size:14px}
+#cartao{display:none}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1>Registrar biometria</h1>
+  <p class="sub">Faça isso uma vez só. Depois, para votar, você confirma com a digital (ou o desbloqueio do celular).</p>
+  <div id="av" class="aviso"></div>
+
+  <div id="bloq" class="caixa" style="display:none">
+    <div id="bmsg"></div>
+    <button id="cop" style="display:none">Copiar endereço</button>
+  </div>
+
+  <div id="add" class="slot">
+    <div class="p">+</div>
+    <div class="t">Envie o PNG do seu título</div>
+    <div class="dica" style="margin-bottom:6px">O arquivo inteiro, sem cortar.</div>
+    <input id="arq" type="file" accept="image/*" style="display:none">
+    <button id="bad">Escolher o PNG do meu título</button>
+  </div>
+
+  <div id="cartao">
+    <canvas id="cf"></canvas>
+    <div class="nm" id="nm"></div>
+    <div class="dica">Ao tocar no botão, o celular vai pedir sua digital, rosto ou senha de tela.</div>
+    <button id="reg" class="v" disabled>REGISTRAR MINHA DIGITAL</button>
+    <button id="tr" class="l">Não é o meu título</button>
+  </div>
+
+  <div id="ok" class="ok">
+    <div class="g">✔</div>
+    <div class="t">Biometria registrada!</div>
+    <div>Agora volte à carteira e vote.</div>
+    <button id="vai" class="v">IR PARA A CARTEIRA</button>
+  </div>
+
+  <div class="dica" style="margin-top:18px">A sua digital e o seu rosto ficam só no celular. O site guarda apenas uma chave que não revela nada sobre você.</div>
+  <a class="volta" href="/">← Voltar à carteira</a>
+</div>
+<script src="/cartao.js"></script>
+<script src="/webauthn.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const KEY = "titulo_atual";
+let token = null, dados = null, opcoes = null, opcoesEm = 0, ocupado = false;
+
+async function api(rota, metodo, corpo){
+  try{
+    const r = await fetch("/api/"+rota, {method:metodo, headers:{"Content-Type":"application/json"}, body: corpo ? JSON.stringify(corpo) : undefined});
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return Object.assign({ok:r.ok, status:r.status}, j);
+  }catch(e){ return {ok:false, status:0, erro:"rede"}; }
+}
+function aviso(t, erro){ const a = $("av"); a.textContent = t || ""; a.className = "aviso" + (erro ? " e" : ""); }
+
+// Navegador sem suporte (ou embutido no WhatsApp, Instagram etc.)
+function checaSuporte(){
+  const s = Passkey.suporte();
+  if(s.ok) return true;
+  $("add").style.display = "none"; $("bloq").style.display = "block";
+  if(s.motivo === "embutido"){
+    $("bmsg").textContent = "Este navegador (WhatsApp, Instagram, etc.) não permite biometria. Abra este endereço no Safari (iPhone) ou no Chrome (Android).";
+    $("cop").style.display = "block";
+  } else {
+    $("bmsg").textContent = "Este aparelho ou navegador não suporta biometria. Tente no Safari ou no Chrome atualizados. Se não funcionar, fale com o mesário.";
+  }
+  return false;
+}
+$("cop").onclick = async () => {
+  const end = location.origin + "/registrar.html";
+  try{ await navigator.clipboard.writeText(end); aviso("Endereço copiado. Cole no Safari ou no Chrome."); }
+  catch(e){ prompt("Copie este endereço e abra no Safari ou no Chrome:", end); }
+};
+
+// Pede as opções ao servidor ANTES do toque no botão (o Safari só aceita a biometria logo após um toque).
+async function preparar(){
+  $("reg").disabled = true; opcoes = null;
+  const r = await api("passkey-registrar", "POST", {titulo: token, etapa: "opcoes"});
+  if(r.ok){ opcoes = r.opcoes; opcoesEm = Date.now(); $("reg").disabled = false; return true; }
+  if(r.erro === "jaRegistrada") aviso("Este título já tem biometria registrada. Se trocou de celular, fale com o mesário.", 1);
+  else if(r.erro === "dispensada") aviso("Este título foi dispensado da biometria. Vote só com o PNG.", 1);
+  else if(r.erro === "jaVotou") aviso("Este título já votou.", 1);
+  else if(r.erro === "invalido") aviso("Título inválido. Use o PNG original.", 1);
+  else { aviso("Erro de conexão. Tente de novo.", 1); $("reg").disabled = false; }
+  return false;
+}
+
+function mostra(){
+  frente($("cf"), dados.nome, dados.numero);
+  $("nm").textContent = dados.nome + " · " + dados.numero;
+  $("add").style.display = "none"; $("cartao").style.display = "block";
+}
+
+async function validar(t){
+  const r = await api("titulo", "POST", {titulo: t});
+  $("bad").disabled = false;
+  if(r.erro === "jaVotou") return aviso("Este título já votou.", 1);
+  if(r.erro === "invalido") return aviso("Título inválido. Use o PNG original.", 1);
+  if(!r.ok) return aviso("Erro de conexão. Tente de novo.", 1);
+  if(r.biometria === "registrada") return aviso("Este título já tem biometria registrada. Se trocou de celular, fale com o mesário.", 1);
+  if(r.biometria === "dispensada") return aviso("Este título foi dispensado da biometria. Vote só com o PNG, na carteira.", 1);
+  token = t; dados = {numero: r.numero, nome: r.nome, token: t};
+  aviso(""); mostra();
+  if(!(await Passkey.temDesbloqueio())) aviso("Atenção: ative digital, rosto ou senha de tela no celular, senão o registro pode falhar.", 1);
+  preparar();
+}
+
+function lerArquivo(f){
+  $("bad").disabled = true; aviso("Lendo o título...");
+  const img = new Image(), url = URL.createObjectURL(f);
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    let t = null; try{ t = lerToken(img); }catch(e){}
+    if(!t){ $("bad").disabled = false; aviso("Não consegui ler este título. Envie o PNG original, inteiro e sem cortar.", 1); return; }
+    validar(t);
+  };
+  img.onerror = () => { $("bad").disabled = false; aviso("Arquivo inválido. Envie o PNG do título.", 1); };
+  img.src = url;
+}
+
+$("bad").onclick = () => $("arq").click();
+$("arq").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) lerArquivo(f); };
+$("tr").onclick = () => { token = null; dados = null; opcoes = null; $("cartao").style.display = "none"; $("add").style.display = "block"; aviso(""); };
+$("vai").onclick = () => { location.href = "/"; };
+
+$("reg").onclick = async () => {
+  if(ocupado) return;
+  // Opções velhas (o desafio dura 3 min): busca outras e pede um novo toque.
+  if(!opcoes || Date.now() - opcoesEm > 150000){
+    $("reg").disabled = true; aviso("Preparando...");
+    if(await preparar()) aviso("Pronto. Toque de novo no botão.");
+    return;
+  }
+  ocupado = true; $("reg").disabled = true;
+  aviso("Confirme com a digital, o rosto ou a senha do celular...");
+  const o = opcoes; opcoes = null;
+  let resp;
+  try{ resp = await Passkey.criar(o); }
+  catch(e){ ocupado = false; aviso(Passkey.erro(e), 1); await preparar(); return; }
+  aviso("Registrando...");
+  const r = await api("passkey-registrar", "POST", {titulo: token, etapa: "verificar", resposta: resp});
+  ocupado = false;
+  if(r.ok){
+    try{ localStorage.setItem(KEY, JSON.stringify(dados)); }catch(e){}
+    aviso(""); $("cartao").style.display = "none"; $("ok").style.display = "block";
+  } else if(r.erro === "jaRegistrada"){ aviso("Este título já tem biometria registrada. Se trocou de celular, fale com o mesário.", 1);
+  } else if(r.erro === "dispensada"){ aviso("Este título foi dispensado da biometria. Vote só com o PNG.", 1);
+  } else if(r.erro === "jaVotou"){ aviso("Este título já votou.", 1);
+  } else if(r.erro === "expirou"){ aviso("Demorou demais. Toque de novo no botão.", 1); await preparar();
+  } else if(r.erro === "falhou"){ aviso("Não foi possível validar a biometria. Toque de novo no botão.", 1); await preparar();
+  } else { aviso("Erro de conexão. Toque de novo no botão.", 1); await preparar(); }
+};
+
+checaSuporte();
+</script>
+</body>
+</html>
