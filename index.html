@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f6f4ea">
 <title>Eleição presidencial</title>
+<script>window.addEventListener("error",function(e){var t=document.getElementById("txt");if(t)t.textContent="Erro na página: "+(e.message||"desconhecido")+" (linha "+(e.lineno||"?")+")";});</script>
 <style>
 :root{color-scheme:light dark;--bg:#e9ebf0;--ink:#111;--card:#fff;--muted:#667;--verde:#1a7f37}
 @media (prefers-color-scheme:dark){:root{--bg:#14151a;--ink:#eee;--card:#22242c;--muted:#a0a4ae}}
@@ -225,4 +226,330 @@ function cenaCabine(){
 const $ = id => document.getElementById(id);
 const RM = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 const dorme = ms => new Promise(r => setTimeout(r, ms));
-const NOMES_CENA = {A:"Sala de votação, com a mesa do mesário ao fundo", B:"Mesa do mesário", C:"Corredor a
+const NOMES_CENA = {A:"Sala de votação, com a mesa do mesário ao fundo", B:"Mesa do mesário", C:"Corredor até a cabine de votação", D:"Dentro da cabine de votação"};
+let token = null, nomeEleitor = "", ocupado = false, tentativas = 0;
+ 
+async function api(rota, metodo, corpo, chave){
+  try{
+    const h = {"Content-Type":"application/json"}; if(chave) h["x-admin-key"] = chave;
+    const r = await fetch("/api/" + rota, {method:metodo, headers:h, body: corpo ? JSON.stringify(corpo) : undefined});
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return Object.assign({ok:r.ok, status:r.status}, j);
+  }catch(e){ return {ok:false, status:0, erro:"rede"}; }
+}
+ 
+// sons discretos (passos, carimbo, tesoura)
+let ac;
+function bate(freq, dur, vol){
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.type = "sine"; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, freq / 2), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur);
+  }catch(e){}
+}
+ 
+function bonito(n){
+  const peq = ["da","de","do","das","dos","e"];
+  return String(n || "").toLowerCase().split(" ").map((p, i) => (i && peq.includes(p)) ? p : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+ 
+function cena(k){
+  ["A","B","C","D"].forEach(x => $("c" + x).classList.toggle("on", x === k));
+  $("stage").setAttribute("aria-label", NOMES_CENA[k]);
+}
+ 
+// mesário: boca, olhos, cabeça, braços
+let humor = "neutro";
+function boca(e){ ["neutro","aberta","sorriso","triste"].forEach(n => { const el = $("b-" + n); if(el) el.style.display = n === e ? "" : "none"; }); }
+function olhar(baixo){ return vai($("pupilas"), {y: baixo ? 3 : 0}, 250); }
+async function acena(){ const c = $("cabeca"); await vai(c, {r:5}, 220); await vai(c, {r:-1}, 260); await vai(c, {r:0}, 220); }
+function piscar(){
+  const l = document.querySelectorAll(".lid"); l.forEach(e => e.setAttribute("height", 8));
+  setTimeout(() => l.forEach(e => e.setAttribute("height", 0)), 130);
+}
+function bracoEstendido(sim){ vai($("bracoEsticado"), {o: sim ? 1 : 0}, 250); vai($("bracoRepouso"), {o: sim ? 0 : 1}, 250); }
+ 
+// fala com efeito de digitação
+let falaId = 0;
+async function fala(quem, texto, comBoca){
+  const id = ++falaId, el = $("txt");
+  $("quem").textContent = quem; $("sr").textContent = quem + ": " + texto;
+  if(RM){ el.textContent = texto; return; }
+  el.textContent = "";
+  let aberta = false;
+  const iv = comBoca ? setInterval(() => { aberta = !aberta; boca(aberta ? "aberta" : humor); }, 130) : null;
+  for(let i = 1; i <= texto.length; i++){
+    if(id !== falaId) break;
+    el.textContent = texto.slice(0, i);
+    await dorme(i % 2 ? 18 : 26);
+  }
+  if(id === falaId) el.textContent = texto;
+  if(iv){ clearInterval(iv); boca(humor); }
+}
+ 
+// o selinho "+ upload do seu título" fica sobre a palma da mão estendida do mesário
+function posUp(){
+  const a = $("alvoUp").getBoundingClientRect(), s = $("stage").getBoundingClientRect(), b = $("upBtn");
+  b.style.left = (a.left - s.left + a.width / 2) + "px";
+  b.style.top = (a.bottom - s.top) + "px";
+}
+function mostraUpload(v){ if(v) posUp(); $("upBtn").classList.toggle("show", !!v); }
+ 
+// "andar": aproxima a câmera do fundo da cena, com balanço de passos
+function andar(gId, ms, fim, ox, oy){
+  ox = ox === undefined ? 200 : ox; oy = oy === undefined ? 255 : oy;
+  if(RM) return dorme(600); // movimento reduzido: sem zoom, só espera a troca suave de cena
+  return new Promise(res => {
+    let feito = false;
+    const acabou = () => { if(!feito){ feito = true; res(); } };
+    const g = $(gId), t0 = performance.now(); let proximo = 0;
+    function f(t){
+      if(feito) return;
+      const k = Math.min(1, Math.max(0, (t - t0) / ms)), e = suave(k);
+      const s = 1 + (fim - 1) * e, balanco = Math.sin((t - t0) / 1000 * Math.PI * 2 * 2.3) * 3.5 * Math.min(1, s);
+      g.setAttribute("transform", "translate(0 " + balanco.toFixed(2) + ") translate(" + ox + " " + oy + ") scale(" + s.toFixed(4) + ") translate(" + (-ox) + " " + (-oy) + ")");
+      if(t - t0 >= proximo && k < .95){ bate(95, .14, .09); proximo += 435; }
+      if(k < 1) requestAnimationFrame(f); else acabou();
+    }
+    requestAnimationFrame(f);
+    setTimeout(acabou, ms + 400);
+  });
+}
+ 
+// luz verde que passa sobre o título enquanto o mesário confere
+let scanAtivo = false;
+async function escanear(ligar){
+  const sc = $("scan");
+  if(!ligar){ scanAtivo = false; coloca(sc, {o:0}); return; }
+  if(scanAtivo) return;
+  scanAtivo = true; coloca(sc, {o:.9, y:-26});
+  while(scanAtivo){ await vai(sc, {y:26}, 450); if(!scanAtivo) break; await vai(sc, {y:-26}, 450); }
+}
+ 
+function posicoesIniciais(){
+  coloca($("cartao"), {x:200, y:615, r:-5, s:1.25, o:1});
+  coloca($("mao"), {y:0, o:1});
+  coloca($("maosM"), {o:0});
+  coloca($("carimbo"), {s:0, o:0});
+  coloca($("scan"), {y:-26, o:0});
+  coloca($("cabeca"), {px:200, py:202, r:0});
+  coloca($("pupilas"), {y:0});
+  coloca($("bracoEsticado"), {o:1}); coloca($("bracoRepouso"), {o:0});
+  coloca($("lista"), {x:296, y:298, s:.5, r:-6, o:1});
+  coloca($("senha"), {x:200, y:337.6, s:1.7, r:0, o:0});
+  coloca($("tesoura"), {x:320, y:352, s:1.3, o:0});
+  coloca($("lamA"), {r:-8}); coloca($("lamB"), {r:8});
+  $("tira").setAttribute("opacity", 1); $("achado").setAttribute("opacity", 0);
+}
+ 
+/* ---- roteiro ---- */
+async function inicio(){
+  cena("A"); boca("neutro");
+  // avisos que chegam da urna ou do mesário
+  const p = new URLSearchParams(location.search);
+  let msg = "Você chegou à seção de votação. A mesa do mesário fica ao fundo da sala.";
+  if(p.get("votou")) msg = "Voto registrado! Obrigado por votar. Próximo eleitor, pode entrar na sala.";
+  else if(p.get("erro") === "jaVotou") msg = "Este título já votou. Se for outro eleitor, pode entrar na sala.";
+  else if(p.get("erro") === "invalido") msg = "Título inválido. Use o PNG original, inteiro e sem cortar.";
+  else if(p.get("erro")) msg = "Não foi possível continuar. Verifique a conexão e tente de novo.";
+  if(location.search) history.replaceState(null, "", "/");
+  await fala("Seção 0001", msg);
+  await dorme(p.get("votou") || p.get("erro") ? 3000 : 1500);   // lê o aviso e já entra na sala sozinho
+  andarAteMesa();
+}
+ 
+async function andarAteMesa(){
+  await fala("Seção 0001", "Vamos até a mesa do mesário.");
+  await andar("gA", 2600, 2.3);
+  cena("B");
+  await dorme(500);
+  acena();
+  await fala("Mesário", "Bom dia! Pode entregar o seu título, por favor. É só tocar na minha mão.", true);
+  mostraUpload(true);
+}
+ 
+// o eleitor escolheu o arquivo: lê o selo de segurança do PNG
+function lerArquivo(f){
+  if(ocupado) return;
+  ocupado = true; mostraUpload(false);
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => {
+    let t = null; try{ t = lerToken(img); }catch(e){}
+    if(!t){ URL.revokeObjectURL(url); ocupado = false; recusa("Hmm, não consegui ler este título. Pode me entregar o PNG original, inteiro e sem cortar?"); return; }
+    token = t;
+    $("cartaoFoto").setAttribute("href", url); $("cartaoImg").style.display = "";
+    ocupado = false; tentativas = 0; entregar();
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); ocupado = false; recusa("Este arquivo não parece uma imagem. Entregue o PNG do seu título, por favor."); };
+  img.src = url;
+}
+async function recusa(msg){
+  humor = "triste"; boca("triste");
+  await fala("Mesário", msg, true);
+  humor = "neutro"; boca("neutro");
+  mostraUpload(true);
+}
+ 
+async function entregar(){
+  posicoesIniciais(); humor = "neutro"; boca("neutro"); mostraUpload(false);
+  const chamada = api("titulo", "POST", {titulo: token});
+  const card = $("cartao");
+  await vai(card, {x:126, y:304, r:-2, s:.8}, 900);          // o título pousa na palma da mão do mesário
+  await vai($("mao"), {y:60, o:0}, 380);
+  olhar(true);
+  fala("Mesário", "Só um instante, vou conferir o seu título…", true);
+  bracoEstendido(false); coloca($("maosM"), {o:1});
+  await vai(card, {x:200, y:284, r:0, s:.86}, 700);          // ele traz o título para perto dos olhos
+  acena();
+  escanear(true);
+  const resultado = await Promise.all([chamada, dorme(2200)]);
+  const r = resultado[0];
+  escanear(false);
+ 
+  if(r.ok){
+    nomeEleitor = r.nome || "";
+    try{ sessionStorage.setItem("titulo", token); }catch(e){}
+    humor = "sorriso"; boca("sorriso");
+    await vai($("carimbo"), {s:1, o:1}, 380, mola); bate(140, .18, .2); acena();
+    await dorme(500);
+    coloca($("maosM"), {o:0});
+    vai(card, {x:200, y:615, r:-5, s:1.25, o:0}, 750); olhar(false);
+    await fala("Mesário", "Tudo certo, " + (bonito(nomeEleitor).split(" ")[0] || "eleitor") + "! Seu título foi conferido.", true);
+    await dorme(250);
+    await cortaSenha();
+    await fala("Mesário", "Aqui está a sua senha. Guarde com você e siga até a cabine de votação.", true);
+    await dorme(1200);
+    andarAteCabine();
+    return;
+  }
+ 
+  humor = "triste"; boca("triste"); olhar(false); coloca($("maosM"), {o:0});
+  vai(card, {x:200, y:615, r:-5, s:1.25, o:0}, 750);
+  if(r.erro === "jaVotou"){
+    await fala("Mesário", "Este título já votou. Não posso liberar a cabine.", true);
+    await dorme(3200); location.replace("/?erro=jaVotou");
+  } else if(r.erro === "invalido"){
+    try{ sessionStorage.removeItem("titulo"); }catch(e){}
+    await fala("Mesário", "Não consegui validar este título.", true);
+    await dorme(3200); location.replace("/?erro=invalido");
+  } else if(++tentativas < 3){
+    await fala("Mesário", "O sistema ficou fora do ar por um instante. Vou tentar de novo…", true);
+    await dorme(1500); entregar();
+  } else {
+    await fala("Mesário", "O sistema continua fora do ar. Volte daqui a pouco.", true);
+    await dorme(3000); location.replace("/?erro=rede");
+  }
+}
+ 
+// a tesoura corre pela linha pontilhada
+function corta(){
+  return new Promise(res => {
+    let feito = false, ultimo = -1;
+    const acabou = () => { if(!feito){ feito = true; res(); } };
+    const D = RM ? 500 : 1000, t0 = performance.now(), x0 = 312, x1 = 92;
+    function f(t){
+      if(feito) return;
+      const k = Math.min(1, Math.max(0, (t - t0) / D)), abre = Math.abs(Math.sin(k * Math.PI * 9)) * 14;
+      coloca($("tesoura"), {x: x0 + (x1 - x0) * k});
+      coloca($("lamA"), {r: -abre}); coloca($("lamB"), {r: abre});
+      const n = Math.floor(k * 9); if(n !== ultimo){ ultimo = n; bate(1500, .03, .05); }
+      if(k < 1) requestAnimationFrame(f); else acabou();
+    }
+    requestAnimationFrame(f);
+    setTimeout(acabou, D + 400);
+  });
+}
+ 
+async function cortaSenha(){
+  const nome = bonito(nomeEleitor), num = token.split("-")[0];
+  const tam = Math.min(6.6, 6.6 * 24 / Math.max(24, nome.length)) + "px";
+  ["tiraNome","senhaNome"].forEach(id => { $(id).textContent = nome; $(id).setAttribute("font-size", tam); });
+  ["tiraNum","senhaNum"].forEach(id => { $(id).textContent = "Nº " + num; });
+  fala("Mesário", "Agora vou cortar a sua senha na lista.", true);
+  await vai($("lista"), {x:200, y:330, s:1.7, r:0}, 850);
+  $("achado").setAttribute("opacity", .9);
+  await dorme(700);
+  coloca($("tesoura"), {x:312, y:352, o:1});
+  await dorme(200);
+  await corta();
+  $("tira").setAttribute("opacity", 0);
+  coloca($("senha"), {x:200, y:337.6, s:1.7, r:0, o:1});
+  vai($("tesoura"), {o:0}, 250);
+  await dorme(250);
+  vai($("lista"), {x:296, y:298, s:.5, r:-6}, 800);
+  await vai($("senha"), {x:200, y:520, r:-3, s:1.15}, 850);
+  bate(300, .08, .08);
+}
+ 
+async function andarAteCabine(){
+  cena("C");
+  await dorme(550);
+  fala("Seção 0001", "Siga em frente até a cabine de votação.");
+  await andar("gC", 3000, 4.2);
+  cena("D");
+  await dorme(700);
+  const nome = bonito(nomeEleitor).split(" ")[0] || "eleitor";
+  await fala("Cabine", "Entre, " + nome + ". Seu voto é secreto.");
+  await dorme(1300);
+  votar();
+}
+ 
+async function votar(){
+  fala("Cabine", "Boa votação!");
+  const p = andar("gD", 1500, 1.9, 200, 300);
+  await dorme(900);
+  $("branco").classList.add("on");
+  await p;
+  await dorme(300);
+  location.href = "/urna.html";
+}
+ 
+/* ---- boletim de urna (senha do mesário) ---- */
+const TOTAL = 28;
+let chaveAdm = "";
+async function atualizaBU(){
+  const b = $("bu");
+  if(!chaveAdm){ chaveAdm = prompt("Senha do mesário:") || ""; if(!chaveAdm){ b.style.display = "none"; return; } }
+  b.style.display = "block"; b.textContent = "Carregando...";
+  const r = await api("resultados", "GET", null, chaveAdm);
+  if(!r.ok){
+    b.innerHTML = "<b>" + (r.status === 401 ? "Senha incorreta." : "Não foi possível carregar o boletim.") + '</b><button id="fechaBu" class="c2" type="button">Fechar</button>';
+    $("fechaBu").onclick = () => { $("bu").style.display = "none"; };
+    chaveAdm = ""; return;
+  }
+  const v = r.votos || {}, nomes = {"14":"14 – Rodrigo Miyamura e Silva (Missão)","50":"50 – Miguel Lucas Arruda (PCL)","22":"22 – Enzo Perelhal Fidelis (PL)","17":"17 – Lorenzo Bonfa (PSB)"};
+  let h = "<b>Boletim de urna – Presidente</b><br>";
+  ["14","50","22","17"].forEach(k => h += nomes[k] + ": " + (v[k] || 0) + "<br>");
+  h += "Brancos: " + (v.branco || 0) + "<br>Nulos: " + (v.nulo || 0) + "<br>Votaram: " + r.votaram + " de " + TOTAL + "<br><br>" +
+       '<button id="zera" class="c" type="button">Zerar urna</button><button id="fechaBu" class="c2" type="button">Fechar</button>';
+  b.innerHTML = h;
+  $("zera").onclick = async () => {
+    if(confirm("Zerar todos os votos e liberar os títulos?")){ await api("zerar", "POST", {}, chaveAdm); atualizaBU(); }
+  };
+  $("fechaBu").onclick = () => { $("bu").style.display = "none"; };
+}
+ 
+function iniciar(){
+  const VB = '<svg class="cena" id="c@" viewBox="0 -110 400 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">';
+  $("cenas").innerHTML =
+    VB.replace("@", "A") + hall("mesa", "gA") + '</svg>' +
+    VB.replace("@", "B") + cenaMesa() + '</svg>' +
+    VB.replace("@", "C") + hall("cabine", "gC") + '</svg>' +
+    VB.replace("@", "D") + cenaCabine() + '</svg>';
+  posicoesIniciais();
+  setInterval(piscar, 4200);
+  window.addEventListener("resize", () => { if($("upBtn").classList.contains("show")) posUp(); });
+  $("upBtn").onclick = () => $("arq").click();
+  $("arq").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if(f) lerArquivo(f); };
+  $("bbu").onclick = () => { if($("bu").style.display === "block" && chaveAdm) $("bu").style.display = "none"; else atualizaBU(); };
+  // começa sempre do zero: ninguém chega à cabine sem passar pelo mesário
+  try{ sessionStorage.removeItem("titulo"); }catch(e){}
+  inicio();
+}
+iniciar();
+</script>
+</body>
+</html>
+ 
