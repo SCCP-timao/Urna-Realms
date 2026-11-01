@@ -39,11 +39,14 @@ h1{font-size:15px;margin:4px 0 10px;letter-spacing:.08em;text-transform:uppercas
 .fim{margin:auto;text-align:center;font-size:84px;font-weight:bold;letter-spacing:.1em}
 .msg{color:#a00;font-weight:bold;margin-top:8px}
 .nulo{font-size:20px;font-weight:bold;margin-top:10px}
+.bu{margin-top:12px;font-size:13px;color:var(--muted);text-align:center}
+.bu button{background:none;border:1px solid var(--muted);color:var(--ink);border-radius:5px;padding:6px 10px;cursor:pointer}
+#bu{display:none;margin-top:8px;background:var(--body);padding:12px;border-radius:8px;max-width:820px;width:100%;font-size:14px}
 @media (max-width:620px){.urna{flex-direction:column}.teclado{flex:none}.tela{min-height:340px}}
 </style>
 </head>
 <body>
-<h1>Urna Eletrônica · Eleição Presidencial</h1>
+<h1 id="cab">Urna Eletrônica</h1>
 <div class="urna">
   <div class="tela" id="tela"></div>
   <div class="teclado">
@@ -58,14 +61,8 @@ h1{font-size:15px;margin:4px 0 10px;letter-spacing:.08em;text-transform:uppercas
 </div>
 
 <script>
-// ► Para colocar as fotos: cole o endereço em data: ou use imagem embutida (base64) em "foto".
-const CANDIDATOS = {
-  "14": {nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
-  "50": {nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
-  "22": {nome:"Enzo Perelhal Fidelis", partido:"PL", foto:""},
-  "17": {nome:"Lorenzo Bonfa", partido:"PSB", foto:""}
-};
-const TOTAL = 28;
+// Quem concorre vem do servidor (/api/config), então muda sozinho a cada turno ou eleição.
+let CANDIDATOS = {};
 let ocupado = false;
 
 // Som oficial da urna ao finalizar o voto (arquivo confirma-urna.mp3, na raiz do site)
@@ -208,7 +205,12 @@ document.addEventListener("keydown", e => {
   const t = sessionStorage.getItem("titulo");
   if(!t){ location.replace("/"); return; }
   render();
-  const r = await api("titulo","POST",{titulo:t});
+  const res = await Promise.all([api("titulo","POST",{titulo:t}), api("config","GET")]);
+  const r = res[0], cfg = res[1];
+  if(!cfg.ok || !cfg.candidatos){ sessionStorage.removeItem("titulo"); location.replace("/?erro=rede"); return; }
+  CANDIDATOS = {}; cfg.candidatos.forEach(c => { CANDIDATOS[c.n] = c; });
+  const cab = document.getElementById("cab");
+  cab.textContent = "Urna Eletrônica · " + (cfg.eleicao && cfg.eleicao.nome || "") + " · " + cfg.turno + "º turno";
   if(r.ok){ tituloAtual = t; nomeAtual = r.nome || ""; etapa = "voto"; render(); }
   else { sessionStorage.removeItem("titulo"); location.replace("/?erro=" + (r.erro || "rede")); }
 })();
