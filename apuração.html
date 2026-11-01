@@ -35,7 +35,9 @@ button{background:var(--track);color:var(--ink);border:0;border-radius:8px;paddi
 .m{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--track);font-size:16px}
 .er{color:#c00;font-weight:bold;text-align:center;margin:8px 0}
 .ver{border-radius:24px;padding:18px;margin-bottom:16px;color:#fff;background:#6b7280}
-.ver.ok{background:#1a7f37}.ver.t2{background:#c9741a}
+.ver.ok{background:#1a7f37}.ver.t2{background:#c9741a}.ver.emp{background:#a33}
+.stt{font-size:14px;margin:2px 0 10px;line-height:1.5}.stt .ab{color:#1a7f37;font-weight:bold}.stt .fe{color:#c00;font-weight:bold}
+.aus{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.5}
 .vt{font-size:22px;font-weight:bold;line-height:1.25}
 .vs{font-size:14px;margin-top:8px;line-height:1.5;opacity:.95}
 details.card summary{cursor:pointer;font-weight:bold;font-size:16px}
@@ -46,12 +48,14 @@ details.card summary{cursor:pointer;font-weight:bold;font-size:16px}
 </head>
 <body>
 <div class="w">
-  <h1>Apuração · Presidente</h1>
+  <h1 id="tt">Apuração</h1>
   <div class="card">
     <div class="lin"><b style="font-size:22px">Dados Gerais</b></div>
     <div class="up" id="up">Carregando...</div>
+    <div class="stt" id="st"></div>
     <div class="lin"><span>Eleitores apurados</span><b id="qt"></b></div>
     <div class="bar"><i id="pb" style="width:0"></i></div>
+    <div class="aus" id="aus"></div>
   </div>
   <div id="veredito" class="ver">Carregando...</div>
   <details class="card"><summary>Ver o cálculo</summary><div class="cl" id="calc"></div></details>
@@ -65,23 +69,20 @@ details.card summary{cursor:pointer;font-weight:bold;font-size:16px}
   </div>
 </div>
 <script>
-// ► Fotos: coloque a imagem em "foto" (endereço ou base64), como na urna.
-const CAND = [
-  {n:"14", nome:"Rodrigo Miyamura e Silva", partido:"Missão", foto:""},
-  {n:"50", nome:"Miguel Lucas Arruda", partido:"PCL", foto:""},
-  {n:"22", nome:"Enzo Perelhal Fidelis", partido:"PL", foto:""},
-  {n:"17", nome:"Lorenzo Bonfa", partido:"PSB", foto:""}
-];
-const TOTAL = 28;
+// Quem concorre, o turno, o horário e o total de eleitores vêm do servidor (/api/apuracao).
 const sil = '<svg viewBox="0 0 100 120"><circle cx="50" cy="42" r="22" fill="#8d9285"/><path d="M8 120c0-34 20-48 42-48s42 14 42 48z" fill="#8d9285"/></svg>';
+const $ = id => document.getElementById(id);
 const pc = x => x.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) + "%";
 const nf = x => x.toLocaleString("pt-BR");
+const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hora = iso => new Date(iso).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(/,?\s+/, " às ");
 
-// ► REGRA DA APURAÇÃO
-// true  = regra do grupo: 50% exatos já elegem, desde que nenhum outro candidato consiga empatar.
+// ► REGRA DA APURAÇÃO (1º turno com 3 ou mais candidatos)
+// true  = regra do grupo: 50% exatos já elegem, desde que nenhum outro candidato consiga alcançar o líder.
 // false = regra oficial brasileira: precisa de MAIS de 50% dos votos válidos.
 const ACEITA_50 = true;
 
+// R = quantos eleitores ainda podem votar. Com a votação fechada, R = 0: quem faltou fica fora da conta.
 function analisa(lista, validos, R){
   const a = lista[0].v, b = lista[1].v, c = (lista[2] || {v:0}).v, den = validos + R;
   const maxOutro = b + R;                               // o 2º colocado, se receber todos os que faltam
@@ -104,72 +105,111 @@ function analisa(lista, validos, R){
   return r;
 }
 
-function veredito(an, lista){
-  const el = document.getElementById("veredito"), n1 = lista[0].nome, n2 = lista[1].nome, R = an.R;
+// Disputa entre 2 candidatos (2º turno, ou eleição com só 2): vence quem tiver mais votos.
+function analisaDuelo(lista, validos, R){
+  const a = lista[0].v, b = lista[1].v;
+  const r = {duelo:true, a:a, b:b, R:R, validos:validos};
+  if(validos === 0) r.estado = R === 0 ? "sem" : "aguardando";
+  else if(a > b + R) r.estado = "eleito";
+  else if(R === 0 && a === b) r.estado = "empate";
+  else r.estado = "andamento";
+  return r;
+}
+
+function veredito(an, lista, turno){
+  const el = $("veredito"), n1 = lista[0].nome, n2 = lista[1].nome, R = an.R;
   const pl = (n, u, p) => n + " " + (n === 1 ? u : p);
   let cls = "ver", t = "", sub = "";
   if(an.estado === "eleito"){
-    cls += " ok"; t = "✔ " + n1 + " ELEITO NO 1º TURNO";
+    cls += " ok"; t = "✔ " + n1 + " ELEITO NO " + turno + "º TURNO";
     sub = "Tem " + nf(an.a) + " votos (" + pc(an.a/an.validos*100) + " dos votos válidos). ";
-    if(R === 0) sub += "Todos os eleitores votaram e ninguém o alcançou.";
+    if(R === 0) sub += an.duelo ? "Todos os votos foram apurados e ele tem mais votos que " + n2 + "." : "Todos os votos foram apurados e ninguém o alcançou.";
+    else if(an.duelo) sub += "Mesmo que os " + R + " eleitores que faltam votem todos em " + n2 + ", ele continua na frente.";
     else if(2*an.a > an.den) sub += "Mesmo que os " + R + " eleitores que faltam votem todos em outros candidatos, ele continua com mais de 50% dos votos válidos.";
     else sub += "No pior caso ele fica com exatamente 50%, mas o 2º colocado chegaria a no máximo " + an.maxOutro + " votos, sem alcançá-lo.";
+  } else if(an.estado === "empate"){
+    cls += " emp"; t = "⚠ EMPATE NO " + turno + "º TURNO";
+    sub = n1 + " e " + n2 + " têm " + nf(an.a) + " votos cada. Definir o desempate pelo critério combinado.";
   } else if(an.estado === "turno2"){
     cls += " t2"; t = "⚠ 2º TURNO: " + n1 + " × " + n2;
     sub = R > 0 ? "Nem se os " + R + " eleitores que faltam votarem todos no líder ele garante a vitória no 1º turno. Os finalistas podem mudar até o fim da votação."
-                : "Ninguém conseguiu a vitória no 1º turno. Finalistas definidos.";
-    if(an.empate2) sub = "Empate pelo 2º lugar: " + lista[1].nome + " e " + lista[2].nome + " têm o mesmo número de votos. Definir o desempate pelo critério combinado.";
+                : "Ninguém conseguiu a vitória no 1º turno. O mesário abre o 2º turno pelo painel.";
+    if(an.empate2) sub = "Empate pelo 2º lugar: " + lista[1].nome + " e " + lista[2].nome + " têm o mesmo número de votos. O mesário escolhe quem avança no painel.";
   } else if(an.estado === "andamento"){
     t = "⏳ Apuração em andamento";
-    sub = "Ainda pode haver vencedor no 1º turno ou 2º turno. " + (an.faltam !== undefined
+    if(an.duelo) sub = n1 + " está na frente, mas o resultado ainda pode mudar (restam " + pl(R, "eleitor", "eleitores") + " para votar).";
+    else sub = "Ainda pode haver vencedor no 1º turno ou 2º turno. " + (an.faltam !== undefined
       ? n1 + " precisa de mais " + pl(an.faltam, "voto", "votos") + " (restam " + pl(R, "eleitor", "eleitores") + " para votar) para ter a vitória garantida no 1º turno." : "");
   } else if(an.estado === "sem"){
     t = "Sem votos válidos"; sub = "Todos os votos foram brancos ou nulos. É preciso uma nova votação.";
   } else { t = "Aguardando os primeiros votos"; }
-  el.className = cls; el.innerHTML = '<div class="vt">' + t + '</div>' + (sub ? '<div class="vs">' + sub + '</div>' : "");
+  el.className = cls; el.innerHTML = '<div class="vt">' + esc(t) + '</div>' + (sub ? '<div class="vs">' + esc(sub) + '</div>' : "");
 }
 
-function calculo(an, lista, total, votaram){
+function calculo(an, lista, d){
   const sim = x => x ? "<b>sim</b>" : "<b>não</b>", lim = ACEITA_50 ? "50% ou mais" : "mais de 50%";
-  if(an.validos === 0){ document.getElementById("calc").innerHTML = "Ainda não há votos válidos para calcular."; return; }
-  document.getElementById("calc").innerHTML =
-    "Eleitores: <b>" + total + "</b> · já votaram: <b>" + votaram + "</b> · faltam: <b>" + an.R + "</b><br>" +
-    "Votos válidos (só candidatos): <b>" + an.validos + "</b>. Brancos e nulos não entram na conta.<br>" +
+  const fechado = d.status !== "aberta";
+  let cab = "Eleitores: <b>" + d.total + "</b> · já votaram: <b>" + d.votaram + "</b> · ";
+  cab += fechado ? "ausentes: <b>" + (d.ausentes || 0) + "</b> (ficam fora da conta, então são considerados <b>" + d.totalEfetivo + "</b> eleitores)<br>" : "faltam: <b>" + an.R + "</b><br>";
+  if(an.validos === 0){ $("calc").innerHTML = cab + "Ainda não há votos válidos para calcular."; return; }
+  cab += "Votos válidos (só candidatos): <b>" + an.validos + "</b>. Brancos e nulos não entram na conta.<br>";
+  if(an.duelo){
+    $("calc").innerHTML = cab + "Regra: com 2 candidatos, vence quem tiver <b>mais votos</b>.";
+    $("calc").innerHTML += '<div class="r">Líder: <b>' + esc(lista[0].nome) + "</b> com <b>" + an.a + "</b> votos. 2º colocado: <b>" + esc(lista[1].nome) + "</b> com <b>" + an.b + "</b>." +
+      (an.R > 0 ? "<br>Se o 2º receber todos os " + an.R + " que faltam: " + an.b + " + " + an.R + " = <b>" + (an.b + an.R) + "</b> → alcança o líder? " + sim(an.b + an.R >= an.a) + "." : "") + "</div>";
+    return;
+  }
+  $("calc").innerHTML = cab +
     "Regra: " + (ACEITA_50 ? "é eleito no 1º turno quem garante <b>50% ou mais</b> dos votos válidos e não pode ser alcançado por nenhum outro candidato."
                           : "é eleito no 1º turno quem passa de <b>50%</b> dos votos válidos.") +
-    '<div class="r">Líder: <b>' + lista[0].nome + "</b> com <b>" + an.a + "</b> votos.<br>" +
+    '<div class="r">Líder: <b>' + esc(lista[0].nome) + "</b> com <b>" + an.a + "</b> votos.<br>" +
     "<b>1)</b> Pior caso (todos os " + an.R + " que faltam votam em outros): " + an.a + " ÷ (" + an.validos + " + " + an.R + ") = <b>" + pc(an.pior) + "</b> → garante " + lim + "? " + sim(an.garante) + ".</div>" +
-    '<div class="r"><b>2)</b> 2º colocado (' + lista[1].nome + ") tem <b>" + an.b + "</b> votos. Se receber todos os " + an.R + " que faltam: " + an.b + " + " + an.R + " = <b>" + an.maxOutro + "</b> → alcança o líder (" + an.a + ")? " + sim(an.alcancado) + ".</div>" +
+    '<div class="r"><b>2)</b> 2º colocado (' + esc(lista[1].nome) + ") tem <b>" + an.b + "</b> votos. Se receber todos os " + an.R + " que faltam: " + an.b + " + " + an.R + " = <b>" + an.maxOutro + "</b> → alcança o líder (" + an.a + ")? " + sim(an.alcancado) + ".</div>" +
     '<div class="r"><b>3)</b> Melhor caso do líder (todos os ' + an.R + " que faltam votam nele): (" + an.a + " + " + an.R + ") ÷ (" + an.validos + " + " + an.R + ") = <b>" + pc(an.melhor) + "</b> → ainda pode vencer no 1º turno? " + sim(an.podeGanhar) + ".</div>" +
     '<div class="r">Conclusão: se o passo 1 é <b>sim</b> e o passo 2 é <b>não</b>, está <b>eleito</b>. Se o passo 3 é <b>não</b>, é <b>2º turno</b>. Fora disso, segue <b>em aberto</b>.</div>';
 }
 
 function desenha(d){
-  const v = d.votos || {};
-  const lista = CAND.map(c => Object.assign({v: v[c.n] || 0}, c));
+  const v = d.votos || {}, cands = d.candidatos || [];
+  const lista = cands.map(c => Object.assign({}, c, {v: v[c.n] || 0}));
   const validos = lista.reduce((a,c) => a + c.v, 0);
   lista.sort((a,b) => b.v - a.v);
   const br = v.branco || 0, nu = v.nulo || 0, tot = validos + br + nu;
-  const ap = Math.min(100, d.votaram / TOTAL * 100);
-  const R = Math.max(0, TOTAL - d.votaram);
-  const an = analisa(lista, validos, R);
-  document.getElementById("up").textContent = "Última atualização " + new Date(d.em).toLocaleString("pt-BR") + " (horário local)";
-  document.getElementById("qt").textContent = nf(d.votaram) + " de " + TOTAL;
-  const pb = document.getElementById("pb"); pb.style.width = ap + "%"; pb.textContent = pc(ap);
-  document.getElementById("br").textContent = nf(br) + " (" + pc(tot ? br/tot*100 : 0) + ")";
-  document.getElementById("nu").textContent = nf(nu) + " (" + pc(tot ? nu/tot*100 : 0) + ")";
-  document.getElementById("to").textContent = nf(tot);
-  veredito(an, lista); calculo(an, lista, TOTAL, d.votaram);
-  document.getElementById("lista").innerHTML = lista.map((c,i) => {
+  const fechado = d.status !== "aberta";
+  const efetivo = d.totalEfetivo;                       // com a votação fechada = só quem votou
+  const R = fechado ? 0 : Math.max(0, d.total - d.votaram);
+  const ap = efetivo ? Math.min(100, d.votaram / efetivo * 100) : 0;
+  const duelo = d.turno >= 2 || lista.length <= 2;
+  const an = lista.length < 2 ? {estado:"aguardando", R:R, validos:validos} : duelo ? analisaDuelo(lista, validos, R) : analisa(lista, validos, R);
+
+  $("tt").textContent = "Apuração · " + (d.eleicao && d.eleicao.nome || "") + " · " + d.turno + "º turno";
+  $("up").textContent = "Última atualização " + new Date(d.em).toLocaleString("pt-BR") + " (horário local)";
+  let st;
+  if(d.status === "encerrada") st = '<span class="fe">Eleição encerrada</span>';
+  else if(d.status === "fechada") st = '<span class="fe">Votação encerrada</span> em ' + hora(d.fecha);
+  else st = '<span class="ab">Votação aberta</span>' + (d.fecha ? " · fecha em " + hora(d.fecha) : "");
+  $("st").innerHTML = st;
+  $("qt").textContent = nf(d.votaram) + " de " + nf(efetivo);
+  const pb = $("pb"); pb.style.width = ap + "%"; pb.textContent = pc(ap);
+  $("aus").textContent = fechado && d.ausentes > 0
+    ? d.ausentes + (d.ausentes === 1 ? " eleitor não votou e ficou fora da conta (de " + d.total + " no total)." : " eleitores não votaram e ficaram fora da conta (de " + d.total + " no total).")
+    : "";
+  $("br").textContent = nf(br) + " (" + pc(tot ? br/tot*100 : 0) + ")";
+  $("nu").textContent = nf(nu) + " (" + pc(tot ? nu/tot*100 : 0) + ")";
+  $("to").textContent = nf(tot);
+  if(lista.length >= 2){ veredito(an, lista, d.turno); calculo(an, lista, d); }
+  else { $("veredito").className = "ver"; $("veredito").innerHTML = '<div class="vt">Aguardando os candidatos</div>'; $("calc").textContent = ""; }
+  $("lista").innerHTML = lista.map((c,i) => {
     const p = validos ? c.v / validos * 100 : 0;
-    const img = c.foto ? '<img alt="" src="'+c.foto+'">' : sil;
+    const img = c.foto ? '<img alt="" src="'+esc(c.foto)+'">' : sil;
     let badge = "";
     if(an.estado === "eleito" && i === 0) badge = '<span class="b e">Eleito</span>';
     else if(an.estado === "turno2" && i < 2) badge = '<span class="b">2º turno</span>';
     else if(an.estado === "andamento" && i === 0) badge = '<span class="b">Na liderança</span>';
+    else if(an.estado === "empate" && i < 2) badge = '<span class="b">Empate</span>';
     return '<div class="c"><div class="l"><div class="av"><svg class="r" viewBox="0 0 110 110"><circle cx="55" cy="55" r="51" fill="none" stroke="var(--track)" stroke-width="4"/><circle cx="55" cy="55" r="51" fill="none" stroke="#e6b800" stroke-width="4" stroke-linecap="round" stroke-dasharray="'+(p*3.2044)+' 320.44"/></svg><div class="f">'+img+'</div></div>' +
       '<div class="n"><div class="p">'+pc(p)+'</div><div class="v">'+nf(c.v)+' votos</div></div></div>' +
-      '<div class="s">'+c.partido+' – '+c.n+'</div><div class="nm">'+c.nome+'</div>'+badge+'</div>';
+      '<div class="s">'+esc(c.partido)+' – '+esc(c.n)+'</div><div class="nm">'+esc(c.nome)+'</div>'+badge+'</div>';
   }).join("");
 }
 
@@ -178,12 +218,12 @@ async function carrega(){
     const r = await fetch("/api/apuracao", {cache:"no-store"});
     if(!r.ok) throw new Error("HTTP "+r.status);
     desenha(await r.json());
-    document.getElementById("er").textContent = "";
+    $("er").textContent = "";
   }catch(e){
-    document.getElementById("er").textContent = "Sem conexão com a apuração ("+(e && e.message || e)+"). Tentando de novo...";
+    $("er").textContent = "Sem conexão com a apuração ("+(e && e.message || e)+"). Tentando de novo...";
   }
 }
-document.getElementById("at").onclick = carrega;
+$("at").onclick = carrega;
 carrega(); setInterval(carrega, 5000);
 </script>
 </body>
