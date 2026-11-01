@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel do mesário</title>
+<style>
+:root{color-scheme:light dark;--bg:#eef0f4;--ink:#111;--card:#fff;--muted:#667;--bt:#0b4f8a;--ok:#1a7f37;--ruim:#c00;--linha:#d6d9e0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#14151a;--ink:#eee;--card:#22242c;--muted:#a0a4ae;--linha:#3a3d47}}
+*{box-sizing:border-box}
+body{margin:0;padding:14px;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center}
+.w{width:100%;max-width:480px}
+h1{font-size:20px;margin:6px 0 12px}
+h2{font-size:17px;margin:0 0 8px}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px #0002;line-height:1.5;font-size:15px}
+.lin{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--linha)}
+.ok{color:var(--ok)}.ruim{color:var(--ruim)}
+.msg{text-align:center;font-weight:bold;min-height:22px;margin:6px 0}
+button{border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:bold;cursor:pointer;background:var(--bt);color:#fff;width:100%;margin-top:10px}
+button.v{background:#1faa3b}button.p{background:#c9741a}button.c{background:#555}
+button:disabled{opacity:.6}
+.pres{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+button.pre{width:auto;margin:0;padding:8px 12px;font-size:13px;background:#555}
+label.op{display:block;padding:10px;border:1px solid var(--linha);border-radius:10px;margin-top:8px}
+label.op input{width:20px;height:20px;vertical-align:middle;margin-right:8px}
+textarea,input[type=text],input[type=datetime-local]{width:100%;font-size:15px;padding:10px;border:1px solid var(--muted);border-radius:8px;background:var(--bg);color:var(--ink);font-family:inherit}
+textarea{min-height:120px}
+summary{cursor:pointer;font-weight:bold;font-size:16px}
+.nota{font-size:13px;color:var(--muted);margin:6px 0}
+a{color:var(--bt)}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1>Painel do mesário</h1>
+  <button id="en">Entrar com a senha</button>
+  <div id="ms" class="msg"></div>
+  <div id="pn"></div>
+  <p class="nota"><a href="/">Voltar à carteira</a> · <a href="/apuracao.html">Ver a apuração</a></p>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let senha = "", S = null;
+const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pc = x => x.toLocaleString("pt-BR", {minimumFractionDigits:1, maximumFractionDigits:1}) + "%";
+
+// Os horários são sempre de Brasília (UTC-3), não importa o fuso do celular.
+const bras = ms => new Date(ms - 3 * 3600000).toISOString().slice(0, 16);
+const fmt = iso => new Date(iso).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"}).replace(/,?\s+/, " às ");
+function lerHora(id){
+  const v = $(id).value; if(!v) return {ok:true, v:null};
+  const ms = Date.parse(v + (v.length === 16 ? ":00" : "") + "-03:00");
+  if(isNaN(ms) || ms <= Date.now()) return {ok:false};
+  return {ok:true, v:new Date(ms).toISOString()};
+}
+const pre = alvo => '<div class="pres">' + [[30,"30 min"],[60,"1 h"],[120,"2 h"],[360,"6 h"],[1440,"24 h"]].map(a =>
+  '<button type="button" class="pre" data-a="' + alvo + '" data-m="' + a[0] + '">' + a[1] + '</button>').join("") + '</div>';
+
+function aviso(t, erro){ const m = $("ms"); m.textContent = t || ""; m.className = "msg" + (erro ? " ruim" : ""); }
+
+async function chama(rota, corpo){
+  try{
+    const r = await fetch("/api/" + rota, {method:"POST", headers:{"Content-Type":"application/json", "x-admin-key":senha}, body:JSON.stringify(corpo || {})});
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return Object.assign({}, j, {ok:r.ok, http:r.status});
+  }catch(e){ return {ok:false, http:0, erro:"rede"}; }
+}
+
+const ERROS = {senha:"Senha incorreta.", rede:"Sem conexão. Tente de novo.", servidor:"Erro no servidor. Tente de novo.", encerrada:"A eleição já está encerrada.",
+  turno:"Este turno não pode ser aberto agora.", finalistas:"Escolha exatamente 2 finalistas.", dados:"Confira o nome e os candidatos (número de 2 dígitos, nome e partido).",
+  horario:"Escolha um horário no futuro (até 1 ano)."};
+const falha = r => aviso(ERROS[r.erro] || ("Erro (" + r.http + ")."), 1);
+
+async function atualiza(){
+  const r = await chama("admin", {acao:"estado"});
+  if(!r.ok){ falha(r); if(r.http === 401){ senha = ""; $("pn").innerHTML = ""; } return; }
+  S = r; aviso(""); desenha();
+}
+
+async function entrar(){
+  const s = prompt("Senha do mesário:") || ""; if(!s) return;
+  senha = s; aviso("Carregando..."); await atualiza();
+}
+
+function desenha(){
+  const s = S, el = s.eleicao, p = s.proposta, nome = n => { const c = p.lista.find(x => x.n === n); return c ? c.n + " – " + c.nome : n; };
+  const aberta = s.status === "aberta";
+
+  // ---- situação ----
+  let st;
+  if(s.status === "encerrada") st = '<b class="ruim">ELEIÇÃO ENCERRADA</b>';
+  else if(s.status === "fechada") st = '<b class="ruim">VOTAÇÃO ENCERRADA</b> em ' + fmt(s.fecha);
+  else st = '<b class="ok">VOTAÇÃO ABERTA</b> · ' + (s.fecha ? 'fecha em ' + fmt(s.fecha) : 'sem horário para fechar');
+  let h = '<div class="card"><h2>' + esc(el.nome) + '</h2><div>' + s.turno + 'º turno · ' + st + '</div>' +
+    '<div>Votaram: <b>' + s.votaram + '</b> de ' + s.total + '</div>';
+  if(!aberta && s.ausentes > 0) h += '<div class="nota">' + s.ausentes + (s.ausentes > 1 ? ' eleitores não votaram e ficam' : ' eleitor não votou e fica') + ' fora da conta: a apuração considera ' + s.totalEfetivo + ' eleitores.</div>';
+  h += '<div style="margin-top:8px"></div>';
+  p.lista.forEach(c => { h += '<div class="lin"><span>' + esc(c.n) + ' – ' + esc(c.nome) + ' (' + esc(c.partido) + ')</span><b>' + c.v + '</b></div>'; });
+  h += '<div class="lin"><span>Brancos</span><b>' + (s.votos.branco || 0) + '</b></div><div class="lin"><span>Nulos</span><b>' + (s.votos.nulo || 0) + '</b></div></div>';
+
+  // ---- horário ----
+  if(s.status !== "encerrada"){
+    h += '<div class="card"><h2>Horário de fechamento</h2>' +
+      '<p class="nota">O turno começa quando é aberto e fecha sozinho no horário abaixo (horário de Brasília). Depois disso ninguém mais vota' + (aberta ? '' : '. Para prorrogar, salve um novo horário') + '.</p>' +
+      '<input type="datetime-local" id="hf">' + pre("hf") +
+      '<button id="shf" class="v">Salvar horário</button>';
+    if(s.fecha && aberta) h += '<button id="thf" class="c">Tirar o horário (fica aberto até eu encerrar)</button>';
+    if(aberta) h += '<button id="fch" class="p">Encerrar a votação agora</button>';
+    h += '</div>';
+  }
+
+  // ---- 2º turno ----
+  if(s.podeAbrirTurno2){
+    h += '<div class="card"><h2>2º turno</h2>';
+    if(!p.validos) h += '<p>Ainda não há votos válidos para decidir os finalistas.</p>';
+    else {
+      const lider = p.lista[0];
+      h += '<p class="nota">Líder: ' + esc(lider.nome) + ' com ' + pc(lider.v / p.validos * 100) + ' dos votos válidos. Veja na apuração se já foi eleito no 1º turno antes de abrir o 2º.</p>';
+      if(aberta) h += '<p class="ruim"><b>O 1º turno ainda está aberto.</b> Se abrir o 2º agora, a votação do 1º será encerrada.</p>';
+      if(p.empate){
+        h += '<p class="ruim"><b>Empate:</b> escolha quem avança (' + p.empate.vagas + (p.empate.vagas > 1 ? ' vagas' : ' vaga') + ').</p>';
+        if(p.fixos.length) h += '<p>Já classificado: <b>' + p.fixos.map(n => esc(nome(n))).join(", ") + '</b></p>';
+        p.empate.candidatos.forEach(n => { h += '<label class="op"><input type="checkbox" class="esc" value="' + esc(n) + '">' + esc(nome(n)) + '</label>'; });
+      } else h += '<p>Finalistas: <b>' + p.fixos.map(n => esc(nome(n))).join(" × ") + '</b></p>';
+      h += '<p class="nota">Todos os eleitores votam no 2º turno. Horário para fechar (opcional):</p><input type="datetime-local" id="hf2">' + pre("hf2") +
+        '<button id="t2" class="v">Confirmar e abrir o 2º turno</button>';
+    }
+    h += '</div>';
+  }
+
+  // ---- ações ----
+  h += '<div class="card"><h2>Ações</h2>';
+  if(s.status !== "encerrada"){
+    h += '<button id="enc" class="p">Encerrar esta eleição</button><button id="zer" class="c">Zerar votos deste turno (só testes)</button>';
+  } else h += '<p>Esta eleição está encerrada. Crie uma nova abaixo para votar de novo.</p>';
+  h += '</div>';
+
+  h += '<details class="card"><summary>Nova eleição</summary>' +
+    '<p class="nota">Isso encerra a eleição atual (os resultados ficam guardados) e abre outra, já no 1º turno. Os PNGs dos títulos continuam valendo.</p>' +
+    '<input type="text" id="nn" placeholder="Nome da eleição" maxlength="80">' +
+    '<p class="nota">Um candidato por linha, no formato:<br><b>número, nome, partido</b><br>Exemplo: 14, Fulano de Tal, ABC</p>' +
+    '<textarea id="nc" placeholder="14, Fulano de Tal, ABC&#10;50, Beltrana Silva, XYZ"></textarea>' +
+    '<p class="nota">Horário para fechar o 1º turno (opcional):</p><input type="datetime-local" id="hfn">' + pre("hfn") +
+    '<button id="nv" class="v">Criar nova eleição</button></details>';
+
+  $("pn").innerHTML = h;
+  if($("hf") && s.fecha && aberta) $("hf").value = bras(Date.parse(s.fecha));
+
+  document.querySelectorAll(".pre").forEach(b => b.onclick = () => { $(b.dataset.a).value = bras(Date.now() + (+b.dataset.m) * 60000); });
+
+  const hora = id => { const r = lerHora(id); if(!r.ok) falha({erro:"horario"}); return r; };
+
+  if($("shf")) $("shf").onclick = async () => {
+    if(!$("hf").value){ aviso("Escolha um horário (ou toque em um dos botões de tempo).", 1); return; }
+    const t = hora("hf"); if(!t.ok) return;
+    aviso("Salvando..."); const r = await chama("admin", {acao:"horario", fecha:t.v});
+    if(!r.ok) return falha(r); S = r; aviso("Horário salvo: fecha em " + fmt(t.v) + "."); desenha();
+  };
+  if($("thf")) $("thf").onclick = async () => {
+    aviso("Salvando..."); const r = await chama("admin", {acao:"horario", fecha:null});
+    if(!r.ok) return falha(r); S = r; aviso("Horário removido."); desenha();
+  };
+  if($("fch")) $("fch").onclick = async () => {
+    if(!confirm("Encerrar agora a votação deste turno? Quem ainda não votou não poderá mais votar.")) return;
+    aviso("Encerrando..."); const r = await chama("admin", {acao:"fechar-turno"});
+    if(!r.ok) return falha(r); S = r; aviso("Votação encerrada."); desenha();
+  };
+  if($("t2")) $("t2").onclick = async () => {
+    let f = p.fixos.slice();
+    if(p.empate){
+      const marcados = [].slice.call(document.querySelectorAll(".esc:checked")).map(x => x.value);
+      if(marcados.length !== p.empate.vagas){ aviso("Marque " + p.empate.vagas + (p.empate.vagas > 1 ? " candidatos." : " candidato."), 1); return; }
+      f = f.concat(marcados);
+    }
+    const t = hora("hf2"); if(!t.ok) return;
+    if(!confirm("Abrir o 2º turno com " + f.map(nome).join(" e ") + "?" + (t.v ? "\nFecha em " + fmt(t.v) + "." : "\nSem horário para fechar.") + (aberta ? "\nA votação do 1º turno será encerrada agora." : "") + "\nO 1º turno fica guardado.")) return;
+    aviso("Abrindo..."); const r = await chama("admin", {acao:"abrir-turno", finalistas:f, fecha:t.v});
+    if(!r.ok) return falha(r); S = r; aviso("2º turno aberto!"); desenha();
+  };
+  if($("enc")) $("enc").onclick = async () => {
+    if(!confirm("Encerrar a eleição? Ninguém mais poderá votar nela.")) return;
+    aviso("Encerrando..."); const r = await chama("admin", {acao:"encerrar"});
+    if(!r.ok) return falha(r); S = r; aviso("Eleição encerrada."); desenha();
+  };
+  if($("zer")) $("zer").onclick = async () => {
+    if((prompt("Isso apaga os votos do " + S.turno + "º turno e libera os títulos.\nDigite ZERAR para confirmar:") || "").trim().toUpperCase() !== "ZERAR") return;
+    aviso("Zerando..."); const r = await chama("zerar", {});
+    if(!r.ok) return falha(r); await atualiza(); aviso("Votos deste turno apagados.");
+  };
+  $("nv").onclick = async () => {
+    const nomeEl = $("nn").value.trim();
+    const cands = $("nc").value.split("\n").map(l => l.trim()).filter(Boolean).map(l => { const a = l.split(",").map(x => x.trim()); return {n:a[0], nome:a[1], partido:a[2] || ""}; });
+    if(!nomeEl || cands.length < 2){ aviso("Preencha o nome e pelo menos 2 candidatos.", 1); return; }
+    const t = hora("hfn"); if(!t.ok) return;
+    if(!confirm("Encerrar a eleição atual e criar \"" + nomeEl + "\" com " + cands.length + " candidatos?")) return;
+    aviso("Criando..."); const r = await chama("admin", {acao:"nova", nome:nomeEl, candidatos:cands, fecha:t.v});
+    if(!r.ok) return falha(r); S = r; aviso("Nova eleição criada!"); desenha();
+  };
+}
+
+$("en").onclick = entrar;
+</script>
+</body>
+</html>
