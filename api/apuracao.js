@@ -5,7 +5,7 @@ module.exports = async (req, res) => {
   try {
     const { el, turno, chaves } = await E.atual();
     const { votos, votaram } = await E.contagem(chaves);
-    const total = E.total(), status = E.statusTurno(el, turno), fechado = status !== "aberta";
+    const total = await E.total(), status = E.statusTurno(el, turno), fechado = status !== "aberta";
     return res.status(200).json({
       votos, votaram, total, turno: turno.turno,
       eleicao: { id: el.id, nome: el.nome, encerrada: !!el.encerrada },
