@@ -13,7 +13,7 @@ return 0`;
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ erro: "metodo" });
   const { titulo: chave, voto } = req.body || {};
-  const titulo = ler(chave); // a chave do PNG, não só o número
+  const titulo = await ler(chave); // a chave do PNG, não só o número
   if (!titulo) return res.status(400).json({ erro: "invalido" });
   if (!(voto === "branco" || (typeof voto === "string" && /^\d{2}$/.test(voto)))) return res.status(400).json({ erro: "voto" });
   try {
@@ -28,4 +28,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ erro: "servidor" });
   }
 };
-    
