@@ -6,7 +6,7 @@ module.exports = async (req, res) => {
     const { el, turno } = await E.atual();
     return res.status(200).json({
       eleicao: { id: el.id, nome: el.nome, encerrada: !!el.encerrada },
-      turno: turno.turno, candidatos: turno.candidatos, total: E.total(),
+      turno: turno.turno, candidatos: turno.candidatos, total: await E.total(),
       fecha: turno.fecha || null, status: E.statusTurno(el, turno),
     });
   } catch (e) {
