@@ -28,6 +28,9 @@ textarea{min-height:120px}
 summary{cursor:pointer;font-weight:bold;font-size:16px}
 .nota{font-size:13px;color:var(--muted);margin:6px 0}
 a{color:var(--bt)}
+.ele{align-items:center}.ele small{color:var(--muted)}
+.bt{display:flex;gap:6px;flex:none}
+button.mini{width:auto;margin:0;padding:8px 10px;font-size:13px}
 </style>
 </head>
 <body>
@@ -38,9 +41,10 @@ a{color:var(--bt)}
   <div id="pn"></div>
   <p class="nota"><a href="/">Voltar à carteira</a> · <a href="/apuracao.html">Ver a apuração</a></p>
 </div>
+<script src="/cartao.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-let senha = "", S = null;
+let senha = "", S = null, L = null;
 const esc = t => String(t == null ? "" : t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const pc = x => x.toLocaleString("pt-BR", {minimumFractionDigits:1, maximumFractionDigits:1}) + "%";
 
@@ -68,13 +72,22 @@ async function chama(rota, corpo){
 
 const ERROS = {senha:"Senha incorreta.", rede:"Sem conexão. Tente de novo.", servidor:"Erro no servidor. Tente de novo.", encerrada:"A eleição já está encerrada.",
   turno:"Este turno não pode ser aberto agora.", finalistas:"Escolha exatamente 2 finalistas.", dados:"Confira o nome e os candidatos (número de 2 dígitos, nome e partido).",
-  horario:"Escolha um horário no futuro (até 1 ano)."};
+  horario:"Escolha um horário no futuro (até 1 ano).",
+  nome:"Digite o nome completo (de 3 a 60 caracteres).", nomeRepetido:"Já existe um eleitor com esse nome. Use o botão PNG da lista para baixar de novo.",
+  naoExiste:"Eleitor não encontrado.", jaVotou:"Essa pessoa já votou neste turno. O voto é secreto e não pode ser apagado, então ela não pode ser removida agora."};
 const falha = r => aviso(ERROS[r.erro] || ("Erro (" + r.http + ")."), 1);
 
 async function atualiza(){
   const r = await chama("admin", {acao:"estado"});
   if(!r.ok){ falha(r); if(r.http === 401){ senha = ""; $("pn").innerHTML = ""; } return; }
-  S = r; aviso(""); desenha();
+  const l = await chama("admin", {acao:"eleitores"});
+  L = l.ok ? l : null; S = r; aviso(""); desenha();
+}
+
+// gera e baixa o PNG da carteirinha (o desenho é feito no próprio celular)
+function baixaPng(d){
+  try{ baixar({numero:d.numero, nome:d.nome, token:d.token}); }
+  catch(e){ aviso("Não consegui gerar o PNG. Toque em PNG na lista.", 1); }
 }
 
 async function entrar(){
@@ -85,6 +98,7 @@ async function entrar(){
 function desenha(){
   const s = S, el = s.eleicao, p = s.proposta, nome = n => { const c = p.lista.find(x => x.n === n); return c ? c.n + " – " + c.nome : n; };
   const aberta = s.status === "aberta";
+  const abertoEl = !!($("dEl") && $("dEl").open);
 
   // ---- situação ----
   let st;
@@ -135,6 +149,26 @@ function desenha(){
   } else h += '<p>Esta eleição está encerrada. Crie uma nova abaixo para votar de novo.</p>';
   h += '</div>';
 
+  if(L){
+    h += '<details class="card" id="dEl"' + (abertoEl ? ' open' : '') + '><summary>Eleitores e carteirinhas (' + L.total + ')</summary>' +
+      '<p class="nota">Digite o nome de uma pessoa nova para criar a carteirinha dela. O PNG é baixado na hora: envie só para ela.</p>' +
+      '<input type="text" id="en2" placeholder="Nome completo" maxlength="60" autocomplete="off">' +
+      '<button id="ce" class="v">Criar carteirinha</button><div style="margin-top:10px"></div>';
+    L.eleitores.forEach(e => {
+      h += '<div class="lin ele"><span>' + esc(e.nome) + '<br><small>Nº ' + esc(e.numero) + (e.votou ? ' · já votou neste turno' : '') + '</small></span>' +
+        '<span class="bt"><button type="button" class="mini" data-a="png" data-n="' + esc(e.numero) + '">PNG</button>' +
+        '<button type="button" class="mini c" data-a="rem" data-n="' + esc(e.numero) + '">Remover</button></span></div>';
+    });
+    if(L.removidos.length){
+      h += '<p class="nota" style="margin-top:12px">Removidos (não podem votar):</p>';
+      L.removidos.forEach(e => {
+        h += '<div class="lin ele"><span>' + esc(e.nome) + '<br><small>Nº ' + esc(e.numero) + '</small></span>' +
+          '<span class="bt"><button type="button" class="mini v" data-a="res" data-n="' + esc(e.numero) + '">Restaurar</button></span></div>';
+      });
+    }
+    h += '</details>';
+  }
+
   h += '<details class="card"><summary>Nova eleição</summary>' +
     '<p class="nota">Isso encerra a eleição atual (os resultados ficam guardados) e abre outra, já no 1º turno. Os PNGs dos títulos continuam valendo.</p>' +
     '<input type="text" id="nn" placeholder="Nome da eleição" maxlength="80">' +
@@ -145,6 +179,32 @@ function desenha(){
 
   $("pn").innerHTML = h;
   if($("hf") && s.fecha && aberta) $("hf").value = bras(Date.parse(s.fecha));
+
+  if($("dEl")){
+    $("ce").onclick = async () => {
+      const nomeNovo = $("en2").value.trim();
+      if(nomeNovo.length < 3){ falha({erro:"nome"}); return; }
+      aviso("Criando..."); const r = await chama("admin", {acao:"criar-eleitor", nome:nomeNovo});
+      if(!r.ok) return falha(r);
+      await atualiza(); aviso("Carteirinha de " + r.criado.nome + " criada (Nº " + r.criado.numero + "). Baixando o PNG...");
+      baixaPng(r.criado);
+    };
+    $("dEl").onclick = async ev => {
+      const b = ev.target.closest ? ev.target.closest("button[data-a]") : null; if(!b) return;
+      const n = b.dataset.n, a = b.dataset.a;
+      const pessoa = (L.eleitores.find(x => x.numero === n) || L.removidos.find(x => x.numero === n) || {});
+      if(a === "png"){ baixaPng(pessoa); return; }
+      if(a === "rem"){
+        if(!confirm("Remover " + pessoa.nome + "?\nEla não poderá mais votar e o PNG dela deixa de valer.")) return;
+        aviso("Removendo..."); const r = await chama("admin", {acao:"remover-eleitor", numero:n});
+        if(!r.ok) return falha(r); await atualiza(); aviso(pessoa.nome + " foi removido(a)."); return;
+      }
+      if(a === "res"){
+        aviso("Restaurando..."); const r = await chama("admin", {acao:"restaurar-eleitor", numero:n});
+        if(!r.ok) return falha(r); await atualiza(); aviso(pessoa.nome + " voltou a poder votar."); return;
+      }
+    };
+  }
 
   document.querySelectorAll(".pre").forEach(b => b.onclick = () => { $(b.dataset.a).value = bras(Date.now() + (+b.dataset.m) * 60000); });
 
